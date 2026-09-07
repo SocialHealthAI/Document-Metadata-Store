@@ -1,0 +1,12 @@
+.git
+.cursor
+.sdd
+.specify
+__pycache__
+*.pyc
+.env
+*.md
+!README.md
+doc
+specs
+agent-transcripts

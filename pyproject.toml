@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "document-metadata-store"
+version = "0.1.0"
+description = "Convert documents into searchable, context-aware knowledge records."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pypdf>=5.0",
+    "fonttools>=4.50",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+dms = "document_metadata_store.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,35 @@
+# STUB metadata schema — subject-independent field definitions.
+# Replace field lists with a project-specific schema via configuration.
+# Do not encode subject-specific logic in application code.
+
+version: 1
+fields:
+  topic:
+    type: string
+    required: false
+  geography:
+    type: string
+    required: false
+  population:
+    type: string
+    required: false
+  time_period:
+    type: string
+    required: false
+  evidence_type:
+    type: string
+    required: false
+  organization:
+    type: string
+    required: false
+  technology:
+    type: string
+    required: false
+  version:
+    type: string
+    required: false
+  platform:
+    type: string
+    required: false
+
+controlled_vocabularies: {}

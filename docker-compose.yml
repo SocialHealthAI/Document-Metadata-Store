@@ -1,0 +1,28 @@
+# STUB: Docker Compose for Document Metadata Store.
+# Replace image, ports, and store services during spec-kit planning / implementation.
+# The metadata store provider must remain swappable (see specs/Document Metadata Store.md).
+
+services:
+  document-metadata-store:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: document-metadata-store
+    env_file:
+      - .env
+    environment:
+      CONFIG_PATH: /app/config.yaml
+      METADATA_SCHEMA_PATH: /app/metadata_schema.yaml
+      DOCUMENTS_INPUT_PATH: /app/documents
+      PREVIEW_BLOCKS: ${PREVIEW_BLOCKS:-0}
+    volumes:
+      - ./documents:/app/documents
+      - ./config.yaml:/app/config.yaml:ro
+      - ./metadata_schema.yaml:/app/metadata_schema.yaml:ro
+    # ports:
+    #   - "${APP_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  # metadata-store:
+  #   image: <vector-store-image>
+  #   # Provider and collection are configured in config.yaml / .env

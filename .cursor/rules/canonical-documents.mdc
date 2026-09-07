@@ -1,0 +1,30 @@
+---
+description: Consult and maintain the product spec plus usage, architecture, and installation docs
+alwaysApply: true
+---
+
+# Canonical Documents
+
+Before planning, implementing, or changing behavior, **read** these files:
+
+1. `specs/Document Metadata Store.md` — product requirements (source of truth)
+2. `doc/architecture.md` — pipeline, components, and deployment shape
+3. `doc/installation.md` — Docker install, env, and configuration
+4. `doc/usage.md` — how operators run, inspect, and reprocess
+
+## Maintain in the same change
+
+Update the matching document when any of the following change:
+
+- Requirements or architectural principle → `specs/Document Metadata Store.md` **and** the three `doc/` files
+- Pipeline, components, or interfaces → `doc/architecture.md`
+- Install, Compose, Dockerfile, or env vars → `doc/installation.md`
+- CLI/API, processing modes, or operator workflow → `doc/usage.md`
+
+Do not ship implementation that contradicts these documents. If they disagree, reconcile the documents before continuing. The product spec wins for behavior unless the user explicitly changes requirements.
+
+## Constraints from the spec
+
+- Keep the tool subject-independent (configuration and schemas, not `if subject == ...`)
+- Never modify original source documents
+- Preserve provenance on every knowledge record

@@ -1,0 +1,47 @@
+# STUB processing configuration.
+# Values are examples from specs/Document Metadata Store.md and are not fixed requirements.
+
+documents:
+  input_path: ./documents
+  recursive: true
+  preview_blocks: 0
+
+preprocessing:
+  enabled: true
+  exclude_sections:
+    - foreword
+    - acknowledgements
+    - table_of_contents
+    - list_of_figures
+    - list_of_tables
+    - abbreviations
+    - references
+    - index
+  figures:
+    mode: captions_only
+  tables:
+    preserve: true
+
+chunking:
+  strategy: structural
+  target_size: 1000
+  max_size: 1500
+  min_size: 300
+  overlap: 100
+
+metadata:
+  enabled: true
+  schema: ./metadata_schema.yaml
+
+embeddings:
+  provider: ${EMBEDDING_PROVIDER}
+  model: ${EMBEDDING_MODEL}
+
+metadata_store:
+  provider: ${METADATA_STORE_PROVIDER}
+  collection: ${METADATA_STORE_COLLECTION}
+
+processing:
+  force: false
+  overwrite: true
+  batch_size: 50
