@@ -5,7 +5,9 @@ from pathlib import Path
 
 from document_metadata_store.models import AnnotatedBlock, Block
 from document_metadata_store.pipeline.loader import LoadRun
+from document_metadata_store.models import SectionNode
 from document_metadata_store.pipeline.preprocessor import PreprocessOutcome, PreprocessRun
+from document_metadata_store.pipeline.structure import StructureRun
 
 _PREVIEW_TEXT_WIDTH = 120
 
@@ -97,6 +99,69 @@ def format_preprocess_run(
         lines.append("named_excludes:")
         lines.extend(recap)
     return "\n".join(lines) + "\n"
+
+
+def format_structure_run(
+    run: StructureRun,
+    *,
+    preview_blocks: int = 0,
+) -> str:
+    counts = run.counts()
+    lines = [
+        "document-structure",
+        f"  sections: {counts['sections']}  subsections: {counts['subsections']}  "
+        f"implicit_title_sections: {counts['implicit_title_sections']}",
+        "",
+    ]
+    for item in run.outcomes:
+        implicit = "  implicit: true" if item.implicit else ""
+        lines.append(f"  processed  {item.path}")
+        lines.append(
+            f"             sections: {item.sections}  max_depth: {item.max_depth}{implicit}"
+        )
+        outline = item.document.iter_sections()
+        if outline:
+            lines.append("             outline:")
+            for node in outline:
+                indent = "  " * max(node.level - 1, 0)
+                title = node.heading.replace('"', "'")
+                lines.append(
+                    f"               {node.level}  {indent}\"{title}\"  {node.start_block_id}"
+                )
+        else:
+            lines.append("             outline: (none)")
+        if preview_blocks > 0:
+            lines.extend(_structure_preview_lines(outline, preview_blocks))
+        lines.append("")
+    for path, error in run.failed:
+        lines.append(f"  failed  {path}")
+        lines.append(f"          error: {error}")
+        lines.append("")
+    lines.append(
+        "summary: "
+        f"processed={counts['processed']} "
+        f"sections={counts['sections']} "
+        f"subsections={counts['subsections']} "
+        f"failed={counts['failed']}"
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _structure_preview_lines(nodes: list[SectionNode], limit: int) -> list[str]:
+    total = len(nodes)
+    shown = nodes[:limit]
+    if total <= limit:
+        header = f"             preview (all {total}):"
+    else:
+        header = f"             preview (first {limit} of {total}):"
+    lines = [header]
+    for node in shown:
+        body_blocks = sum(len(unit.blocks) for unit in node.body)
+        lines.append(
+            f"               {node.section_id}  L{node.level}  "
+            f"children={len(node.children)}  body_blocks={body_blocks}  {node.heading[:80]}"
+        )
+    return lines
 
 
 def _excluded_section_lines(item: PreprocessOutcome) -> list[str]:

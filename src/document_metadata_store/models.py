@@ -97,6 +97,10 @@ class AnnotatedBlock:
     def location(self) -> Location:
         return self.block.location
 
+    @property
+    def style_hints(self) -> StyleHints | None:
+        return self.block.style_hints
+
 
 @dataclass(frozen=True)
 class AnnotatedPage:
@@ -140,3 +144,56 @@ class PreprocessedDocument:
             elif block.classifier.startswith("llm:"):
                 by_llm += 1
         return {"by_rule": by_rule, "by_alias": by_alias, "by_llm": by_llm}
+
+
+BodyKind = Literal["paragraph", "table", "list_item", "caption", "text"]
+
+
+@dataclass(frozen=True)
+class BodyUnit:
+    kind: BodyKind
+    blocks: list[AnnotatedBlock] = field(default_factory=list)
+
+
+@dataclass
+class SectionNode:
+    section_id: str
+    heading: str
+    level: int
+    start_block_id: str
+    implicit: bool = False
+    body: list[BodyUnit] = field(default_factory=list)
+    children: list["SectionNode"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class StructuredDocument:
+    metadata: DocumentMetadata
+    source: str
+    sections: list[SectionNode] = field(default_factory=list)
+    implicit_title: bool = False
+
+    def iter_sections(self) -> list[SectionNode]:
+        nodes: list[SectionNode] = []
+
+        def walk(node: SectionNode) -> None:
+            nodes.append(node)
+            for child in node.children:
+                walk(child)
+
+        for root in self.sections:
+            walk(root)
+        return nodes
+
+    def section_count(self) -> int:
+        return len(self.sections)
+
+    def subsection_count(self) -> int:
+        return sum(1 for node in self.iter_sections() if node.level > 1)
+
+    def node_count(self) -> int:
+        return len(self.iter_sections())
+
+    def max_depth(self) -> int:
+        nodes = self.iter_sections()
+        return max((node.level for node in nodes), default=0)

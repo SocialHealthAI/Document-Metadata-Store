@@ -30,7 +30,7 @@ python -m document_metadata_store --preview-blocks 20
 
 Or set `PREVIEW_BLOCKS=20` / `documents.preview_blocks` in `config.yaml` (default `0` = summary only).
 
-The command discovers `documents/`, loads text PDFs with **pypdf** (and **fonttools**), then preprocesses keep/exclude marks. Exit status is `1` if any PDF failed to parse or preprocess.
+The command discovers `documents/`, loads text PDFs with **pypdf** (and **fonttools**), preprocesses keep/exclude marks, then builds a retained section tree. Exit status is `1` if any PDF failed to parse, preprocess, or extract structure.
 
 ## Docker
 

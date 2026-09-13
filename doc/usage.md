@@ -1,6 +1,6 @@
 # Usage
 
-**Status:** Load and preprocess run in one command. Later stages are not implemented.
+**Status:** Load, preprocess, and structure extraction run in one command. Later stages are not implemented.
 
 ## Intended workflow
 
@@ -68,6 +68,24 @@ Cover is pages before Contents when a TOC heading exists. No TOC means no cover 
 
 Always print **excluded section titles** (one line per excluded span: type, heading text, start `block_id`). If a document has no named front-matter spans (typical of short web-print PDFs), the line is `excluded_sections: (none)`. After the per-file list, `named_excludes:` recaps only the documents that did have named spans so they are not buried. Do not dump every excluded body block. Preview stays optional and truncated.
 
+### Console (structure step)
+
+After preprocess, the same command prints the retained outline (kept blocks only):
+
+```text
+document-structure
+  sections: 28  subsections: 18  implicit_title_sections: 1
+
+  processed  documents/World report on social determinants of health equity, WHO 2025.pdf
+             sections: 12  max_depth: 3
+             outline:
+               1  "Executive summary"  p14-b3
+               1  "Part 1: The state of social determinants of health equity"  p31-b2
+               2    "Chapter 1: Inequities in today’s world"  p33-b2
+```
+
+Always print the **outline** (depth, heading, start `block_id`). Heading-light PDFs (Healthy People scrapes) show one implicit section named from the document title. A Part/Chapter/Recommendation/Annex or dotted number must appear before weaker `1. Title` lines or leftover LLM headings are used. Running headers, bibliography lines, citation marks, and sentence fragments are body, not new sections.
+
 By default the console does **not** print block text. To sample the tree, set `preview_blocks` / `PREVIEW_BLOCKS` / `--preview-blocks N` (first N blocks of each loaded document, one line each, text truncated).
 
 ```text
@@ -104,4 +122,4 @@ python -m document_metadata_store --config config.yaml
 python -m document_metadata_store --preview-blocks 20
 ```
 
-Runs load then preprocess against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for LLM heading classification; omit the key to use aliases and rules only.
+Runs load, preprocess, then structure against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude; structure preview samples outline nodes). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for leftover heading classification; omit the key to use aliases and rules only.
