@@ -9,14 +9,31 @@ documents:
 preprocessing:
   enabled: true
   exclude_sections:
+    - cover
     - foreword
     - acknowledgements
     - table_of_contents
     - list_of_figures
     - list_of_tables
     - abbreviations
-    - references
     - index
+  section_aliases:
+    table_of_contents:
+      - contents
+      - table of contents
+      - toc
+    references:
+      - references
+      - bibliography
+      - sources and notes
+      - works cited
+    acknowledgements:
+      - acknowledgements
+      - acknowledgments
+    foreword:
+      - foreword
+      - forward
+      - preface
   figures:
     mode: captions_only
   tables:

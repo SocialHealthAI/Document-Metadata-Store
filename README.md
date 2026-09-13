@@ -2,7 +2,7 @@
 
 A generalized tool for converting documents into searchable, context-aware knowledge records. Subject-specific behavior is supplied through configuration, metadata schemas, controlled vocabularies, and prompts — not application code.
 
-**Status:** Document load (text PDFs) is implemented. Later pipeline stages are not.
+**Status:** Document load (text PDFs) and preprocessing (keep/exclude) are implemented. Later pipeline stages are not.
 
 ## Canonical documents
 
@@ -27,8 +27,8 @@ Or with Docker: `docker compose up --build`. See [doc/installation.md](doc/insta
 ## Repository layout (scaffolding)
 
 ```text
-src/document_metadata_store/   # Load package (pypdf)
-config.yaml                    # Processing configuration
+src/document_metadata_store/   # Load (pypdf) and preprocess
+config.yaml                    # Processing configuration (exclude_sections, aliases)
 documents/                     # Source documents (never modified in place)
 doc/                           # Architecture, installation, usage
 specs/                         # Product spec and SDD artifacts

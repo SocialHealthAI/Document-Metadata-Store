@@ -4,15 +4,16 @@ import argparse
 import sys
 from pathlib import Path
 
-from document_metadata_store.config import load_documents_config
-from document_metadata_store.console import format_load_run
+from document_metadata_store.config import load_app_config
+from document_metadata_store.console import format_load_run, format_preprocess_run
 from document_metadata_store.pipeline.loader import load_documents
+from document_metadata_store.pipeline.preprocessor import preprocess_documents
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="document-metadata-store",
-        description="Document Metadata Store — document load (PDFs first).",
+        description="Document Metadata Store — load and preprocess documents.",
     )
     parser.add_argument(
         "--config",
@@ -24,19 +25,27 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=None,
         metavar="N",
-        help="Print the first N blocks of each loaded document (default: PREVIEW_BLOCKS / config, else 0)",
+        help="Print the first N blocks of each document (default: PREVIEW_BLOCKS / config, else 0)",
     )
     args = parser.parse_args(argv)
 
     cwd = Path.cwd()
     config_path = Path(args.config) if args.config else None
-    config = load_documents_config(config_path, cwd=cwd)
-    preview = args.preview_blocks if args.preview_blocks is not None else config.preview_blocks
+    app = load_app_config(config_path, cwd=cwd)
+    preview = (
+        args.preview_blocks
+        if args.preview_blocks is not None
+        else app.documents.preview_blocks
+    )
     if preview < 0:
         parser.error("--preview-blocks must be >= 0")
-    run = load_documents(config, cwd=cwd)
-    sys.stdout.write(format_load_run(run, cwd=cwd, preview_blocks=preview))
-    return 1 if run.counts()["failed"] else 0
+    load_run = load_documents(app.documents, cwd=cwd)
+    sys.stdout.write(format_load_run(load_run, cwd=cwd, preview_blocks=preview))
+    prep_run = preprocess_documents(load_run, app.preprocessing, app.llm)
+    sys.stdout.write("\n")
+    sys.stdout.write(format_preprocess_run(prep_run, preview_blocks=preview))
+    failed = load_run.counts()["failed"] + prep_run.counts()["failed"]
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

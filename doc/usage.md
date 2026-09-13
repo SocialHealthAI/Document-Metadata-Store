@@ -1,6 +1,6 @@
 # Usage
 
-**Status:** Load-step console and discovery are implemented. Later stages are not.
+**Status:** Load and preprocess run in one command. Later stages are not implemented.
 
 ## Intended workflow
 
@@ -47,7 +47,26 @@ document-load
 summary: discovered=2 loaded=1 skipped_unsupported=1 skipped_image_only=0 failed=0
 ```
 
-Loaded files report **pages**, **blocks**, and **text_chars**. Title is printed only when the PDF provides it.
+### Console (preprocess step)
+
+After load, the same command prints keep/exclude counts and each excluded section title:
+
+```text
+document-preprocess
+  enabled: true
+  exclude_sections: cover, foreword, acknowledgements, table_of_contents, …
+
+  processed  documents/World report on social determinants of health equity, WHO 2025.pdf
+             kept: 8120  excluded: 2237  by_rule: 400  by_alias: 1200  by_llm: 0
+             excluded_sections:
+               cover                 "World report on social determinants of health equity"  p1-b1
+               table_of_contents     "Contents"  p5-b2
+               foreword              "Foreword"  p7-b2
+```
+
+Cover is pages before Contents when a TOC heading exists. No TOC means no cover marks. References and citations are **kept by default**; add `references` to `exclude_sections` only if you want them dropped. LLM classification is optional (`LLM_API_KEY`); without a key, aliases and rules still run.
+
+Always print **excluded section titles** (one line per excluded span: type, heading text, start `block_id`). If a document has no named front-matter spans (typical of short web-print PDFs), the line is `excluded_sections: (none)`. After the per-file list, `named_excludes:` recaps only the documents that did have named spans so they are not buried. Do not dump every excluded body block. Preview stays optional and truncated.
 
 By default the console does **not** print block text. To sample the tree, set `preview_blocks` / `PREVIEW_BLOCKS` / `--preview-blocks N` (first N blocks of each loaded document, one line each, text truncated).
 
@@ -85,4 +104,4 @@ python -m document_metadata_store --config config.yaml
 python -m document_metadata_store --preview-blocks 20
 ```
 
-Runs the load step against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per loaded document. See console output above. Processing, inspection dumps, and retrieval commands for later stages will be documented here when they exist.
+Runs load then preprocess against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for LLM heading classification; omit the key to use aliases and rules only.

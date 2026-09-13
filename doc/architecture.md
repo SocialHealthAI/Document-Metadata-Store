@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** Active for the load contract; other stages still stubbed. Keep aligned with `specs/Document Metadata Store.md` and `specs/active/document-load/feature-brief.md`.
+**Status:** Load and preprocess stages are implemented. Later stages still stubbed. Keep aligned with `specs/Document Metadata Store.md` and the active feature briefs.
 
 ## Purpose
 
@@ -39,6 +39,8 @@ NormalizedDocument
       location      # page, optional bbox
 ```
 
+Preprocessing copies that tree into `AnnotatedBlock` values (`keep` | `exclude`, section type, classifier). Blocks are never deleted.
+
 | Stage | Consumes | Produces |
 |-------|----------|----------|
 | DocumentLoader | Source file (read-only) | `NormalizedDocument` (all blocks kept) |
@@ -48,12 +50,18 @@ NormalizedDocument
 
 `kind` is an observable (`heading_candidate` means style/position suggests a heading). Confirmed sections are Structure Extraction’s job.
 
+Cover (when configured): pages **before** the first Contents heading. No TOC → no cover marks.
+
+References / bibliography / citations are **kept by default**. Operators may add `references` to `exclude_sections` to drop them.
+
+TOC (when configured): the Contents page plus following pages that still contain TOC leader-dot lines. Chapter titles listed in the TOC stay `table_of_contents`, not live chapter spans.
+
 ## Components
 
 | Component | Responsibility |
 |-----------|----------------|
 | DocumentLoader | Load PDF with **pypdf** into in-memory `NormalizedDocument`; console summary; optional first-N block preview |
-| Preprocessor | Configurable include/exclude of non-knowledge sections (mark blocks; do not delete) |
+| Preprocessor | Hybrid keep/exclude (rules, aliases, optional Anthropic LLM); mark blocks; log excluded section titles |
 | StructureExtractor | Promote blocks into sections, headings, tables, figure captions, lists |
 | Chunker | Structural, context-aware knowledge units |
 | MetadataExtractor | Configurable schema; inheritance; explicit/inherited/inferred/unknown |
@@ -64,11 +72,12 @@ NormalizedDocument
 
 ## Deployment (intended)
 
-Docker Compose hosts the application and any chosen metadata-store service. Provider implementations are swappable behind interfaces. Runtime for the load slice is Python 3.12.
+Docker Compose hosts the application and any chosen metadata-store service. Provider implementations are swappable behind interfaces. Runtime is Python 3.12.
 
 ## Open
 
 - Concrete embedding and store providers
-- Inspection/API surface beyond the load console
+- Inspection/API surface beyond the load/preprocess console
+- Structure extraction and later stages
 
-Load extract uses **pypdf** plus **fonttools** so embedded CFF/Type1 fonts decode correctly. Font size, bold (from font name), indent, and bbox come from text visitors when present. Tables and captions are usually `text`; do not invent those kinds without a reliable signal.
+Load extract uses **pypdf** plus **fonttools**. Preprocess uses configurable aliases plus an optional Anthropic adapter (`LLM_PROVIDER=anthropic`, default `LLM_MODEL=claude-sonnet-5`).

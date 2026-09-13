@@ -15,13 +15,16 @@ services:
       METADATA_SCHEMA_PATH: /app/metadata_schema.yaml
       DOCUMENTS_INPUT_PATH: /app/documents
       PREVIEW_BLOCKS: ${PREVIEW_BLOCKS:-0}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
+      LLM_API_KEY: ${LLM_API_KEY:-}
     volumes:
       - ./documents:/app/documents
       - ./config.yaml:/app/config.yaml:ro
       - ./metadata_schema.yaml:/app/metadata_schema.yaml:ro
     # ports:
     #   - "${APP_PORT:-8000}:8000"
-    restart: unless-stopped
+    restart: "no"
 
   # metadata-store:
   #   image: <vector-store-image>

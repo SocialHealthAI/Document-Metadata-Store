@@ -123,8 +123,6 @@ The preprocessing stage should support configurable exclusion of sections such a
 
 * Abbreviations/acronyms
 
-* References/bibliography
-
 * Index
 
 The system must **not assume that every document should exclude all of these sections**. Inclusion and exclusion should be configurable.
@@ -147,7 +145,9 @@ The default configuration should generally retain substantive sections such as:
 
 * Recommendations
 
-Executive summaries should not be automatically removed because they can contain valuable high-level knowledge.
+* References / bibliography / works cited (citations)
+
+Executive summaries should not be automatically removed because they can contain valuable high-level knowledge. Reference lists and citations are knowledge, not administrative noise; they must be retained unless the operator adds `references` to `exclude_sections`.
 
 ## 4.3 Figures
 
@@ -533,7 +533,6 @@ preprocessing:
     - list_of_figures
     - list_of_tables
     - abbreviations
-    - references
     - index
 
   figures:
@@ -878,3 +877,4 @@ The Document Metadata Store should improve retrieval by preserving the informati
 | Date | Change |
 |------|--------|
 | 2026-09-06 | §3: locked block-level `NormalizedDocument` contract (pages → reading-order blocks) so preprocessing, section detection, and metadata can consume load output without reconstructing lost PDF layout. |
+| 2026-09-09 | §4.1–4.2 and §13: keep references/citations by default; exclusion remains configurable via `exclude_sections`. |

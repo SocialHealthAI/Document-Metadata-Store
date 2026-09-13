@@ -5,7 +5,7 @@
 - Python 3.12+, or Docker and Docker Compose
 - A copy of this repository
 
-Provider credentials for embeddings / LLM / metadata store are not required for the load step.
+Provider credentials for embeddings / metadata store are not required. Preprocess can run without `LLM_API_KEY` (alias/rules only). Anthropic is used when `LLM_PROVIDER=anthropic` and `LLM_API_KEY` are set.
 
 ## Configure
 
@@ -13,7 +13,7 @@ Provider credentials for embeddings / LLM / metadata store are not required for 
 2. Place text-extractable PDFs under `documents/` (or the path in `DOCUMENTS_INPUT_PATH` / `config.yaml`).
 3. Original source documents must never be modified.
 
-## Local run (load step)
+## Local run
 
 ```bash
 python -m pip install -e .
@@ -30,7 +30,7 @@ python -m document_metadata_store --preview-blocks 20
 
 Or set `PREVIEW_BLOCKS=20` / `documents.preview_blocks` in `config.yaml` (default `0` = summary only).
 
-The command discovers `documents/`, loads text PDFs with **pypdf** (and **fonttools**, needed to decode embedded CFF/Type1 fonts such as those in the WHO report), prints the console summary, and keeps `NormalizedDocument` trees in memory for the process. Exit status is `1` if any PDF failed to parse.
+The command discovers `documents/`, loads text PDFs with **pypdf** (and **fonttools**), then preprocesses keep/exclude marks. Exit status is `1` if any PDF failed to parse or preprocess.
 
 ## Docker
 
@@ -39,7 +39,7 @@ docker compose build
 docker compose up
 ```
 
-The image installs the package and runs `python -m document_metadata_store`. Compose mounts `./documents` and `config.yaml` into the container.
+The image installs the package and runs `python -m document_metadata_store` once (it is not a long-running server). Rebuild after code changes: `docker compose up --build`. Scroll to the `document-preprocess` block and the `named_excludes:` recap at the end — short PDFs often show `excluded_sections: (none)`; named titles appear on reports that have Contents/Foreword/etc.
 
 To preview blocks without a rebuild, set `PREVIEW_BLOCKS` in `.env` (for example `PREVIEW_BLOCKS=20`) and run `docker compose up`. Or:
 

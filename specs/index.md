@@ -14,6 +14,7 @@
 | Task ID | Feature | Status | Created |
 |---------|---------|--------|---------|
 | [document-load](active/document-load/feature-brief.md) | Document load (PDFs first) | Implemented | 2026-09-06 |
+| [document-preprocessing](active/document-preprocessing/feature-brief.md) | Document preprocessing (keep/exclude) | Implemented | 2026-09-07 |
 
 ### Completed Features
 

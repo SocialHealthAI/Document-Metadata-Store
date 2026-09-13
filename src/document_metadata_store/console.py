@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from document_metadata_store.models import Block
+from document_metadata_store.models import AnnotatedBlock, Block
 from document_metadata_store.pipeline.loader import LoadRun
+from document_metadata_store.pipeline.preprocessor import PreprocessOutcome, PreprocessRun
 
 _PREVIEW_TEXT_WIDTH = 120
 
@@ -54,6 +55,103 @@ def format_load_run(
         f"failed={counts['failed']}"
     )
     return "\n".join(lines) + "\n"
+
+
+def format_preprocess_run(
+    run: PreprocessRun,
+    *,
+    preview_blocks: int = 0,
+) -> str:
+    lines = [
+        "document-preprocess",
+        f"  enabled: {str(run.enabled).lower()}",
+        f"  exclude_sections: {', '.join(run.exclude_sections)}",
+        "",
+    ]
+    for item in run.outcomes:
+        lines.append(f"  processed  {item.path}")
+        lines.append(
+            f"             kept: {item.kept}  excluded: {item.excluded}  "
+            f"by_rule: {item.by_rule}  by_alias: {item.by_alias}  by_llm: {item.by_llm}"
+        )
+        lines.extend(_excluded_section_lines(item))
+        if preview_blocks > 0:
+            lines.extend(
+                _annotated_preview_lines(item.document.iter_blocks(), preview_blocks)
+            )
+        lines.append("")
+    for path, error in run.failed:
+        lines.append(f"  failed  {path}")
+        lines.append(f"          error: {error}")
+        lines.append("")
+    counts = run.counts()
+    lines.append(
+        "summary: "
+        f"processed={counts['processed']} "
+        f"kept_blocks={counts['kept_blocks']} "
+        f"excluded_blocks={counts['excluded_blocks']} "
+        f"failed={counts['failed']}"
+    )
+    recap = _named_exclude_recap(run)
+    if recap:
+        lines.append("named_excludes:")
+        lines.extend(recap)
+    return "\n".join(lines) + "\n"
+
+
+def _excluded_section_lines(item: PreprocessOutcome) -> list[str]:
+    sections = item.document.excluded_sections
+    if not sections:
+        if item.excluded:
+            return [
+                "             excluded_sections: (none)",
+                "             note: blocks excluded by rules only "
+                "(running headers, TOC leaders, or roman folios)",
+            ]
+        return ["             excluded_sections: (none)"]
+    width = max(len(section.section_type) for section in sections)
+    lines = ["             excluded_sections:"]
+    for section in sections:
+        title = section.title.replace('"', "'")
+        lines.append(
+            f"               {section.section_type:<{width}}  "
+            f'"{title}"  {section.start_block_id}'
+        )
+    return lines
+
+
+def _named_exclude_recap(run: PreprocessRun) -> list[str]:
+    lines: list[str] = []
+    for item in run.outcomes:
+        if not item.document.excluded_sections:
+            continue
+        lines.append(f"  {item.path}")
+        width = max(len(section.section_type) for section in item.document.excluded_sections)
+        for section in item.document.excluded_sections:
+            title = section.title.replace('"', "'")
+            lines.append(
+                f"    {section.section_type:<{width}}  "
+                f'"{title}"  {section.start_block_id}'
+            )
+    return lines
+
+
+def _annotated_preview_lines(blocks: list[AnnotatedBlock], limit: int) -> list[str]:
+    total = len(blocks)
+    shown = blocks[:limit]
+    if total <= limit:
+        header = f"             preview (all {total}):"
+    else:
+        header = f"             preview (first {limit} of {total}):"
+    lines = [header]
+    for item in shown:
+        text = _one_line(item.text, _PREVIEW_TEXT_WIDTH)
+        section = item.section_type or "-"
+        lines.append(
+            f"               {item.block_id}  {item.kind}  {item.disposition}  "
+            f"{section}  {text}"
+        )
+    return lines
 
 
 def _preview_lines(blocks: list[Block], limit: int) -> list[str]:
