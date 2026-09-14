@@ -276,3 +276,7 @@ def test_load_app_config_reads_cover_and_aliases() -> None:
     assert "references" not in app.preprocessing.exclude_sections
     assert "bibliography" in app.preprocessing.aliases["references"]
     assert app.llm.model
+    assert app.chunking.target_size == 1000
+    assert app.chunking.max_size == 1500
+    assert app.chunking.min_size == 300
+    assert app.chunking.overlap == 100

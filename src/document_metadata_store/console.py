@@ -3,9 +3,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from document_metadata_store.models import AnnotatedBlock, Block
+from document_metadata_store.models import AnnotatedBlock, Block, Chunk, SectionNode
+from document_metadata_store.pipeline.chunker import ChunkRun
 from document_metadata_store.pipeline.loader import LoadRun
-from document_metadata_store.models import SectionNode
 from document_metadata_store.pipeline.preprocessor import PreprocessOutcome, PreprocessRun
 from document_metadata_store.pipeline.structure import StructureRun
 
@@ -145,6 +145,63 @@ def format_structure_run(
         f"failed={counts['failed']}"
     )
     return "\n".join(lines) + "\n"
+
+
+def format_chunk_run(
+    run: ChunkRun,
+    *,
+    preview_blocks: int = 0,
+) -> str:
+    counts = run.counts()
+    lines = [
+        "document-chunk",
+        f"  chunks: {counts['chunks']}  oversized_atomic: {counts['oversized_atomic']}",
+        "",
+    ]
+    for item in run.outcomes:
+        lines.append(f"  processed  {item.path}")
+        lines.append(
+            f"             chunks: {item.chunks}  max_chars: {item.max_chars}"
+        )
+        if item.document.chunks:
+            lines.append("             chunks:")
+            for index, chunk in enumerate(item.document.chunks, start=1):
+                title = chunk.section_heading.replace('"', "'")
+                lines.append(
+                    f'               c{index}  "{title}"  '
+                    f"{len(chunk.original_text)}  {chunk.start_block_id}"
+                )
+        else:
+            lines.append("             chunks: (none)")
+        if preview_blocks > 0:
+            lines.extend(_chunk_preview_lines(item.document.chunks, preview_blocks))
+        lines.append("")
+    for path, error in run.failed:
+        lines.append(f"  failed  {path}")
+        lines.append(f"          error: {error}")
+        lines.append("")
+    lines.append(
+        "summary: "
+        f"processed={counts['processed']} "
+        f"chunks={counts['chunks']} "
+        f"oversized_atomic={counts['oversized_atomic']} "
+        f"failed={counts['failed']}"
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _chunk_preview_lines(chunks: list[Chunk], limit: int) -> list[str]:
+    total = len(chunks)
+    shown = chunks[:limit]
+    if total <= limit:
+        header = f"             preview (all {total}):"
+    else:
+        header = f"             preview (first {limit} of {total}):"
+    lines = [header]
+    for chunk in shown:
+        text = _one_line(chunk.contextual_text, _PREVIEW_TEXT_WIDTH)
+        lines.append(f"               {chunk.chunk_id}  {text}")
+    return lines
 
 
 def _structure_preview_lines(nodes: list[SectionNode], limit: int) -> list[str]:

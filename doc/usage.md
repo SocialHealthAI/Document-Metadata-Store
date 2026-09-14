@@ -1,6 +1,6 @@
 # Usage
 
-**Status:** Load, preprocess, and structure extraction run in one command. Later stages are not implemented.
+**Status:** Load, preprocess, structure extraction, and context-aware chunking run in one command. Later stages are not implemented.
 
 ## Intended workflow
 
@@ -86,6 +86,23 @@ document-structure
 
 Always print the **outline** (depth, heading, start `block_id`). Heading-light PDFs (Healthy People scrapes) show one implicit section named from the document title. A Part/Chapter/Recommendation/Annex or dotted number must appear before weaker `1. Title` lines or leftover LLM headings are used. Running headers, bibliography lines, citation marks, and sentence fragments are body, not new sections.
 
+### Console (chunk step)
+
+After structure, the same command prints the chunk list (original-body character counts; heading prefix is extra context and is not counted):
+
+```text
+document-chunk
+  chunks: 84  oversized_atomic: 1
+
+  processed  documents/World report on social determinants of health equity, WHO 2025.pdf
+             chunks: 61  max_chars: 1482
+             chunks:
+               c1  "Executive summary"  912  p14-b4
+               c2  "1.1.1 Definitions"  1104  p36-b44
+```
+
+Always print **one line per chunk** (id, section heading, original char count, start `block_id`). Start `block_id` is the first block covered by that chunk’s original text, not the section heading. Do not dump original or contextual text unless `--preview-blocks` / `PREVIEW_BLOCKS` is set. Sizes come from `config.yaml` `chunking:` (`target_size` 1000, `max_size` 1500, `min_size` 300, `overlap` 100 characters of original body). Paragraphs over `max_size` split on sentences, then on whitespace if needed; tables, lists, and captions stay one chunk. Sections are not merged even when under `min_size`. Bibliography is kept and chunked unless `references` is added to `exclude_sections`.
+
 By default the console does **not** print block text. To sample the tree, set `preview_blocks` / `PREVIEW_BLOCKS` / `--preview-blocks N` (first N blocks of each loaded document, one line each, text truncated).
 
 ```text
@@ -122,4 +139,4 @@ python -m document_metadata_store --config config.yaml
 python -m document_metadata_store --preview-blocks 20
 ```
 
-Runs load, preprocess, then structure against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude; structure preview samples outline nodes). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for leftover heading classification; omit the key to use aliases and rules only.
+Runs load, preprocess, structure, then chunk against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude; structure preview samples outline nodes; chunk preview samples `contextual_text`). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for leftover heading classification; omit the key to use aliases and rules only.

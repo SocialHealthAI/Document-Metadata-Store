@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** Load, preprocess, and structure extraction are implemented. Later stages still stubbed. Keep aligned with `specs/Document Metadata Store.md` and the active feature briefs.
+**Status:** Load, preprocess, structure extraction, and context-aware chunking are implemented. Later stages still stubbed. Keep aligned with `specs/Document Metadata Store.md` and the active feature briefs.
 
 ## Futures
 
@@ -50,7 +50,8 @@ Preprocessing copies that tree into `AnnotatedBlock` values (`keep` | `exclude`,
 | DocumentLoader | Source file (read-only) | `NormalizedDocument` (all blocks kept) |
 | Preprocessor | That tree | Same blocks, marked keep/exclude; exclusion reasons + locations |
 | StructureExtractor | Kept blocks only | Section → subsection → paragraph tree (excluded omitted) |
-| MetadataExtractor / Chunker | Section tree + document metadata | Knowledge records |
+| Chunker | Section tree | Context-aware chunks (original + heading prefix; sizes from config) |
+| MetadataExtractor | Section tree + document metadata | Knowledge records |
 
 `kind` is an observable (`heading_candidate` means style/position suggests a heading). Confirmed sections are Structure Extraction’s job.
 
@@ -67,7 +68,7 @@ TOC (when configured): the Contents page plus following pages that still contain
 | DocumentLoader | Load PDF with **pypdf** into in-memory `NormalizedDocument`; console summary; optional first-N block preview |
 | Preprocessor | Hybrid keep/exclude (rules, aliases, optional Anthropic LLM); mark blocks; log excluded section titles |
 | StructureExtractor | Promote kept blocks into a nested outline after a strong Part/Chapter/dotted cue; leftover heading-like lines may use Anthropic; heading-light docs get one implicit title section; running headers, citations, and sentence fragments are not headings |
-| Chunker | Structural, context-aware knowledge units |
+| Chunker | Split each section’s body on paragraph/sentence boundaries; prepend ancestor headings; do not merge across sections; tables/lists/captions stay one chunk |
 | MetadataExtractor | Configurable schema; inheritance; explicit/inherited/inferred/unknown |
 | MetadataValidator | Required fields, types, vocabularies, conflicts |
 | EmbeddingProvider | Vendor-agnostic embeddings with contextual text |
@@ -81,7 +82,7 @@ Docker Compose hosts the application and any chosen metadata-store service. Prov
 ## Open
 
 - Concrete embedding and store providers
-- Inspection/API surface beyond the load/preprocess/structure console
-- Chunking and later stages
+- Inspection/API surface beyond the load/preprocess/structure/chunk console
+- Metadata extraction and later stages
 
 Load extract uses **pypdf** plus **fonttools**. Preprocess uses configurable aliases plus an optional Anthropic adapter (`LLM_PROVIDER=anthropic`, default `LLM_MODEL=claude-sonnet-5`).

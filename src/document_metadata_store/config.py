@@ -10,6 +10,10 @@ DEFAULT_CONFIG_PATH = Path("config.yaml")
 DEFAULT_INPUT_PATH = Path("documents")
 DEFAULT_PREVIEW_BLOCKS = 0
 DEFAULT_LLM_MODEL = "claude-sonnet-5"
+DEFAULT_CHUNK_TARGET = 1000
+DEFAULT_CHUNK_MAX = 1500
+DEFAULT_CHUNK_MIN = 300
+DEFAULT_CHUNK_OVERLAP = 100
 
 DEFAULT_EXCLUDE_SECTIONS = (
     "cover",
@@ -72,10 +76,20 @@ class PreprocessingConfig:
 
 
 @dataclass(frozen=True)
+class ChunkingConfig:
+    strategy: str = "structural"
+    target_size: int = DEFAULT_CHUNK_TARGET
+    max_size: int = DEFAULT_CHUNK_MAX
+    min_size: int = DEFAULT_CHUNK_MIN
+    overlap: int = DEFAULT_CHUNK_OVERLAP
+
+
+@dataclass(frozen=True)
 class AppConfig:
     documents: DocumentsConfig
     preprocessing: PreprocessingConfig
     llm: LlmConfig
+    chunking: ChunkingConfig
 
 
 def load_documents_config(
@@ -147,6 +161,9 @@ def load_app_config(
     if api_key == "":
         api_key = None
 
+    llm = LlmConfig(provider=provider, model=model, api_key=api_key)
+    chunking = _chunking_config(data.get("chunking") or {})
+
     return AppConfig(
         documents=DocumentsConfig(
             input_path=input_path.resolve(),
@@ -160,7 +177,8 @@ def load_app_config(
             figures_mode=figures_mode,
             tables_preserve=bool(tables_preserve),
         ),
-        llm=LlmConfig(provider=provider, model=model, api_key=api_key),
+        llm=llm,
+        chunking=chunking,
     )
 
 
@@ -175,3 +193,36 @@ def _preview_blocks(raw) -> int:
     if value < 0:
         raise ValueError("preview_blocks must be >= 0")
     return value
+
+
+def _chunking_config(raw: dict) -> ChunkingConfig:
+    target = _chunk_int("CHUNK_TARGET_SIZE", raw.get("target_size", DEFAULT_CHUNK_TARGET), "target_size")
+    maximum = _chunk_int("CHUNK_MAX_SIZE", raw.get("max_size", DEFAULT_CHUNK_MAX), "max_size")
+    minimum = _chunk_int("CHUNK_MIN_SIZE", raw.get("min_size", DEFAULT_CHUNK_MIN), "min_size")
+    overlap = _chunk_int("CHUNK_OVERLAP", raw.get("overlap", DEFAULT_CHUNK_OVERLAP), "overlap")
+    if target <= 0 or maximum <= 0 or minimum < 0 or overlap < 0:
+        raise ValueError("chunking sizes must be non-negative; target and max must be > 0")
+    if minimum > maximum:
+        raise ValueError("chunking min_size must be <= max_size")
+    if minimum > target:
+        raise ValueError("chunking min_size must be <= target_size")
+    if target > maximum:
+        raise ValueError("chunking target_size must be <= max_size")
+    strategy = str(raw.get("strategy") or "structural")
+    return ChunkingConfig(
+        strategy=strategy,
+        target_size=target,
+        max_size=maximum,
+        min_size=minimum,
+        overlap=overlap,
+    )
+
+
+def _chunk_int(env_name: str, raw, field: str) -> int:
+    env = os.environ.get(env_name)
+    if env is not None and env != "":
+        raw = env
+    try:
+        return int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"chunking.{field} must be an integer, got {raw!r}") from exc

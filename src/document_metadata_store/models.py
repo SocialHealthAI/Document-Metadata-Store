@@ -197,3 +197,34 @@ class StructuredDocument:
     def max_depth(self) -> int:
         nodes = self.iter_sections()
         return max((node.level for node in nodes), default=0)
+
+
+@dataclass(frozen=True)
+class Chunk:
+    chunk_id: str
+    document_id: str
+    section_id: str
+    section_heading: str
+    parent_heading: str | None
+    original_text: str
+    contextual_text: str
+    start_block_id: str
+    end_block_id: str
+    pages: tuple[int, ...] = ()
+    oversized_atomic: bool = False
+
+
+@dataclass(frozen=True)
+class ChunkedDocument:
+    metadata: DocumentMetadata
+    source: str
+    chunks: list[Chunk] = field(default_factory=list)
+
+    def chunk_count(self) -> int:
+        return len(self.chunks)
+
+    def oversized_atomic_count(self) -> int:
+        return sum(1 for chunk in self.chunks if chunk.oversized_atomic)
+
+    def max_original_chars(self) -> int:
+        return max((len(chunk.original_text) for chunk in self.chunks), default=0)

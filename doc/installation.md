@@ -30,7 +30,7 @@ python -m document_metadata_store --preview-blocks 20
 
 Or set `PREVIEW_BLOCKS=20` / `documents.preview_blocks` in `config.yaml` (default `0` = summary only).
 
-The command discovers `documents/`, loads text PDFs with **pypdf** (and **fonttools**), preprocesses keep/exclude marks, then builds a retained section tree. Exit status is `1` if any PDF failed to parse, preprocess, or extract structure.
+The command discovers `documents/`, loads text PDFs with **pypdf** (and **fonttools**), preprocesses keep/exclude marks, builds a retained section tree, then emits context-aware chunks. Exit status is `1` if any PDF failed to parse, preprocess, extract structure, or chunk.
 
 ## Docker
 
@@ -39,7 +39,7 @@ docker compose build
 docker compose up
 ```
 
-The image installs the package and runs `python -m document_metadata_store` once (it is not a long-running server). Rebuild after code changes: `docker compose up --build`. Scroll to the `document-preprocess` block and the `named_excludes:` recap at the end — short PDFs often show `excluded_sections: (none)`; named titles appear on reports that have Contents/Foreword/etc.
+The image installs the package and runs `python -m document_metadata_store` once (it is not a long-running server). Rebuild after code changes: `docker compose up --build`. Scroll to `document-structure` and `document-chunk` after preprocess. Short PDFs often show `excluded_sections: (none)` and one implicit title section split into size-bounded chunks.
 
 To preview blocks without a rebuild, set `PREVIEW_BLOCKS` in `.env` (for example `PREVIEW_BLOCKS=20`) and run `docker compose up`. Or:
 

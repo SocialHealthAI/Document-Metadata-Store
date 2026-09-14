@@ -6,10 +6,12 @@ from pathlib import Path
 
 from document_metadata_store.config import load_app_config
 from document_metadata_store.console import (
+    format_chunk_run,
     format_load_run,
     format_preprocess_run,
     format_structure_run,
 )
+from document_metadata_store.pipeline.chunker import chunk_documents
 from document_metadata_store.pipeline.loader import load_documents
 from document_metadata_store.pipeline.preprocessor import preprocess_documents
 from document_metadata_store.pipeline.structure import extract_structures
@@ -18,7 +20,7 @@ from document_metadata_store.pipeline.structure import extract_structures
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="document-metadata-store",
-        description="Document Metadata Store — load, preprocess, and extract structure.",
+        description="Document Metadata Store — load, preprocess, extract structure, and chunk.",
     )
     parser.add_argument(
         "--config",
@@ -52,10 +54,14 @@ def main(argv: list[str] | None = None) -> int:
     struct_run = extract_structures(prep_run, app.preprocessing, app.llm)
     sys.stdout.write("\n")
     sys.stdout.write(format_structure_run(struct_run, preview_blocks=preview))
+    chunk_run = chunk_documents(struct_run, app.chunking)
+    sys.stdout.write("\n")
+    sys.stdout.write(format_chunk_run(chunk_run, preview_blocks=preview))
     failed = (
         load_run.counts()["failed"]
         + prep_run.counts()["failed"]
         + struct_run.counts()["failed"]
+        + chunk_run.counts()["failed"]
     )
     return 1 if failed else 0
 

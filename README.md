@@ -2,7 +2,7 @@
 
 A generalized tool for converting documents into searchable, context-aware knowledge records. Subject-specific behavior is supplied through configuration, metadata schemas, controlled vocabularies, and prompts — not application code.
 
-**Status:** Document load (text PDFs), preprocessing (keep/exclude), and structure extraction are implemented. Later pipeline stages are not.
+**Status:** Document load (text PDFs), preprocessing (keep/exclude), structure extraction, and context-aware chunking are implemented. Later pipeline stages are not.
 
 ## Canonical documents
 
