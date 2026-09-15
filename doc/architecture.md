@@ -1,10 +1,11 @@
 # Architecture
 
-**Status:** Load, preprocess, structure extraction, and context-aware chunking are implemented. Later stages still stubbed. Keep aligned with `specs/Document Metadata Store.md` and the active feature briefs.
+**Status:** Load, preprocess, structure extraction, context-aware chunking, and metadata extraction are implemented. Later stages still stubbed. Keep aligned with `specs/Document Metadata Store.md` and the active feature briefs.
 
 ## Futures
 
 - **Configurable outline labels.** Structure extraction uses a hardcoded English-report prior (`part` / `chapter` / `recommendation` / `annex` / `appendix`, plus dotted `1.2.1` numbers). That is subject-independent and works for WHO-style reports and heading-light scrapes (one implicit title section). It is not universal: later corpora will need `Section` / `Article` / Roman parts / non-English labels (`Capítulo`, `Anexo`) without a code change. Move the named-label list and depths into configuration, the same way `section_aliases` already parameterizes preprocess. Do not add per-document or per-subject branches.
+- **Metadata controlled vocabularies.** Extraction stores free-text lists (`topic`, `geography`, `population`, `time_period`) on each chunk. Semantic search uses the chunk embedding (`contextual_text`), not cosine on those tag strings. When metadata **filters** land in the store, grow a schema-file vocabulary (canonical ids + aliases, e.g. `US` ← United States / USA) from extraction histograms and existing codes (ISO 3166, SDoH/HP topic lists). Keep it in `metadata_schema.yaml`, not in application code. Do not block extraction on an empty vocab.
 
 ## Purpose
 
@@ -51,7 +52,7 @@ Preprocessing copies that tree into `AnnotatedBlock` values (`keep` | `exclude`,
 | Preprocessor | That tree | Same blocks, marked keep/exclude; exclusion reasons + locations |
 | StructureExtractor | Kept blocks only | Section → subsection → paragraph tree (excluded omitted) |
 | Chunker | Section tree | Context-aware chunks (original + heading prefix; sizes from config) |
-| MetadataExtractor | Section tree + document metadata | Knowledge records |
+| MetadataExtractor | Chunks + schema | Free-text list fields per chunk (topic, geography, population, time_period) + provenance |
 
 `kind` is an observable (`heading_candidate` means style/position suggests a heading). Confirmed sections are Structure Extraction’s job.
 
@@ -69,7 +70,7 @@ TOC (when configured): the Contents page plus following pages that still contain
 | Preprocessor | Hybrid keep/exclude (rules, aliases, optional Anthropic LLM); mark blocks; log excluded section titles |
 | StructureExtractor | Promote kept blocks into a nested outline after a strong Part/Chapter/dotted cue; leftover heading-like lines may use Anthropic; heading-light docs get one implicit title section; running headers, citations, and sentence fragments are not headings |
 | Chunker | Split each section’s body on paragraph/sentence boundaries; prepend ancestor headings; do not merge across sections; tables/lists/captions stay one chunk |
-| MetadataExtractor | Configurable schema; inheritance; explicit/inherited/inferred/unknown |
+| MetadataExtractor | Schema-driven free-text lists per chunk from `contextual_text`; batched Anthropic calls; explicit/inherited/inferred/unknown; histogram console |
 | MetadataValidator | Required fields, types, vocabularies, conflicts |
 | EmbeddingProvider | Vendor-agnostic embeddings with contextual text |
 | MetadataStore | Persistent records; semantic + metadata retrieval; re-index |
@@ -82,7 +83,7 @@ Docker Compose hosts the application and any chosen metadata-store service. Prov
 ## Open
 
 - Concrete embedding and store providers
-- Inspection/API surface beyond the load/preprocess/structure/chunk console
-- Metadata extraction and later stages
+- Inspection/API surface beyond the load/preprocess/structure/chunk/metadata console
+- Metadata validation and later stages
 
-Load extract uses **pypdf** plus **fonttools**. Preprocess uses configurable aliases plus an optional Anthropic adapter (`LLM_PROVIDER=anthropic`, default `LLM_MODEL=claude-sonnet-5`).
+Load extract uses **pypdf** plus **fonttools**. Preprocess uses configurable aliases plus an optional Anthropic adapter (`LLM_PROVIDER=anthropic`, default `LLM_MODEL=claude-sonnet-5`). Metadata extraction uses the same adapter in batches of `processing.batch_size` (default 50).

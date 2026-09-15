@@ -1,13 +1,13 @@
 # Usage
 
-**Status:** Load, preprocess, structure extraction, and context-aware chunking run in one command. Later stages are not implemented.
+**Status:** Load, preprocess, structure extraction, context-aware chunking, and metadata extraction run in one command. Later stages are not implemented.
 
 ## Intended workflow
 
 1. Place documents in `documents/` (or the path set in `config.yaml` / `DOCUMENTS_INPUT_PATH`).
 2. Configure preprocessing, chunking, metadata, embeddings, and store in `config.yaml`.
 3. Point `metadata.schema` at a subject-specific `metadata_schema.yaml`.
-4. Run a processing pass (command TBD).
+4. Run `python -m document_metadata_store` (or `docker compose up`).
 5. Inspect the processing manifest and intermediate results before relying on stored records.
 
 ## Processing modes
@@ -103,7 +103,31 @@ document-chunk
 
 Always print **one line per chunk** (id, section heading, original char count, start `block_id`). Start `block_id` is the first block covered by that chunk’s original text, not the section heading. Do not dump original or contextual text unless `--preview-blocks` / `PREVIEW_BLOCKS` is set. Sizes come from `config.yaml` `chunking:` (`target_size` 1000, `max_size` 1500, `min_size` 300, `overlap` 100 characters of original body). Paragraphs over `max_size` split on sentences, then on whitespace if needed; tables, lists, and captions stay one chunk. Sections are not merged even when under `min_size`. Bibliography is kept and chunked unless `references` is added to `exclude_sections`.
 
-By default the console does **not** print block text. To sample the tree, set `preview_blocks` / `PREVIEW_BLOCKS` / `--preview-blocks N` (first N blocks of each loaded document, one line each, text truncated).
+### Console (metadata step)
+
+After chunking, the same command extracts schema fields (`topic`, `geography`, `population`, `time_period`) as free-text lists on each chunk. Values are grounded in `contextual_text`. Extraction is batched (`processing.batch_size`, default 50). Without `LLM_API_KEY`, fields stay empty (Unknown) and the run still succeeds. `metadata.enabled: false` skips extraction.
+
+The console is a **histogram + sample of tagged chunks**, not one line per chunk:
+
+```text
+document-metadata
+  enabled: true  batch_size: 50
+  records: 519  with_any_field: 480  llm_failed: 2
+
+  processed  documents/World report on social determinants of health equity, WHO 2025.pdf
+             records: 519  with_any_field: 480  llm_failed: 2
+             topic:        housing (41), income (28), diabetes (6)
+             geography:    Kenya (12), Brazil (9), global (80)
+             population:   adults (22), children (11)
+             time_period:  2020-2023 (18), 2015 (7)
+             origins:      explicit=612 inherited=88 inferred=40 unknown=0
+             sample (tagged):
+               c41  topic=[housing instability]  geo=[Kenya]  pop=[]  time=[2022]
+```
+
+Sample size is `preview_blocks` when set, otherwise 5 **tagged** chunks (original `cN`). Empty leading chunks from a failed batch are skipped in the sample. Histograms are top 10 terms, case-insensitive. If a large batch hits `max_tokens` or bad JSON, it is split and retried. Recovered splits print `llm_retried: N`, not `llm_error:`. `llm_error:` is only for chunks that still failed after retries.
+
+By default the console does **not** print block text. To sample the tree, set `preview_blocks` / `PREVIEW_BLOCKS` / `--preview-blocks N` (first N blocks of each loaded document, one line each, text truncated). Metadata preview also includes truncated `contextual_text` on the sample.
 
 ```text
 document-load
@@ -139,4 +163,4 @@ python -m document_metadata_store --config config.yaml
 python -m document_metadata_store --preview-blocks 20
 ```
 
-Runs load, preprocess, structure, then chunk against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude; structure preview samples outline nodes; chunk preview samples `contextual_text`). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for leftover heading classification; omit the key to use aliases and rules only.
+Runs load, preprocess, structure, chunk, then metadata extraction against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude; structure preview samples outline nodes; chunk preview samples `contextual_text`; metadata preview adds truncated text on the sample). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for leftover heading classification and metadata extraction; omit the key to use aliases/rules for preprocess and leave metadata Unknown.

@@ -7,6 +7,7 @@ import pytest
 
 from document_metadata_store.config import LlmConfig, load_app_config
 from document_metadata_store.pipeline.chunker import chunk_documents
+from document_metadata_store.pipeline.extractor import extract_metadata_documents
 from document_metadata_store.pipeline.loader import load_documents
 from document_metadata_store.pipeline.preprocessor import preprocess_documents
 from document_metadata_store.pipeline.structure import extract_structures
@@ -98,3 +99,34 @@ def test_healthy_people_chunks_under_implicit_title() -> None:
     assert all(chunk.section_heading == first.heading for chunk in item.document.chunks)
     if body_chars > app.chunking.target_size:
         assert item.chunks >= 2
+
+
+def test_who_metadata_unknown_without_llm() -> None:
+    repo = Path(__file__).resolve().parents[1]
+    pdf = repo / "documents" / WHO_NAME
+    if not pdf.is_file():
+        pytest.skip(f"WHO fixture not present: {WHO_NAME}")
+
+    chunk_run, _struct, app = _chunk_run(repo)
+    meta_run = extract_metadata_documents(chunk_run, app.metadata, LlmConfig())
+    item = next(outcome for outcome in meta_run.outcomes if outcome.path.endswith(WHO_NAME))
+    assert item.records == item.document.chunk_count()
+    assert item.records > 3
+    assert not item.skipped
+    assert item.with_any_field == 0
+    assert item.document.field_names == ("topic", "geography", "population", "time_period")
+
+
+def test_healthy_people_metadata_unknown_without_llm() -> None:
+    repo = Path(__file__).resolve().parents[1]
+    matches = sorted((repo / "documents").rglob(HP_GLOB))
+    if not matches:
+        pytest.skip("Healthy People scrape PDF not present")
+
+    chunk_run, _struct, app = _chunk_run(repo)
+    meta_run = extract_metadata_documents(chunk_run, app.metadata, LlmConfig())
+    target = matches[0].name
+    item = next(outcome for outcome in meta_run.outcomes if outcome.path.endswith(target))
+    assert item.records >= 1
+    assert not item.skipped
+    assert item.with_any_field == 0

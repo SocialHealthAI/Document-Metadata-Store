@@ -228,3 +228,63 @@ class ChunkedDocument:
 
     def max_original_chars(self) -> int:
         return max((len(chunk.original_text) for chunk in self.chunks), default=0)
+
+
+MetadataOrigin = Literal["explicit", "inherited", "inferred", "unknown"]
+
+
+@dataclass(frozen=True)
+class MetadataValue:
+    value: str
+    origin: MetadataOrigin = "explicit"
+    confidence: float | None = None
+
+
+@dataclass(frozen=True)
+class ChunkMetadata:
+    fields: dict[str, tuple[MetadataValue, ...]] = field(default_factory=dict)
+
+    def values_for(self, name: str) -> tuple[MetadataValue, ...]:
+        return self.fields.get(name, ())
+
+    def texts_for(self, name: str) -> tuple[str, ...]:
+        return tuple(item.value for item in self.values_for(name))
+
+    def has_any(self) -> bool:
+        return any(self.fields.values())
+
+
+@dataclass(frozen=True)
+class EnrichedChunk:
+    chunk: Chunk
+    metadata: ChunkMetadata
+    llm_failed: bool = False
+    llm_error: str | None = None
+
+    @property
+    def chunk_id(self) -> str:
+        return self.chunk.chunk_id
+
+    @property
+    def section_heading(self) -> str:
+        return self.chunk.section_heading
+
+
+@dataclass(frozen=True)
+class EnrichedDocument:
+    metadata: DocumentMetadata
+    source: str
+    chunks: list[EnrichedChunk] = field(default_factory=list)
+    skipped: bool = False
+    field_names: tuple[str, ...] = ()
+    llm_errors: tuple[str, ...] = ()
+    llm_retries: int = 0
+
+    def chunk_count(self) -> int:
+        return len(self.chunks)
+
+    def with_any_field_count(self) -> int:
+        return sum(1 for item in self.chunks if item.metadata.has_any())
+
+    def llm_failed_count(self) -> int:
+        return sum(1 for item in self.chunks if item.llm_failed)

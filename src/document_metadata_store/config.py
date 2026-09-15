@@ -14,6 +14,8 @@ DEFAULT_CHUNK_TARGET = 1000
 DEFAULT_CHUNK_MAX = 1500
 DEFAULT_CHUNK_MIN = 300
 DEFAULT_CHUNK_OVERLAP = 100
+DEFAULT_METADATA_SCHEMA_PATH = Path("metadata_schema.yaml")
+DEFAULT_BATCH_SIZE = 50
 
 DEFAULT_EXCLUDE_SECTIONS = (
     "cover",
@@ -85,11 +87,19 @@ class ChunkingConfig:
 
 
 @dataclass(frozen=True)
+class MetadataConfig:
+    enabled: bool = True
+    schema_path: Path = DEFAULT_METADATA_SCHEMA_PATH
+    batch_size: int = DEFAULT_BATCH_SIZE
+
+
+@dataclass(frozen=True)
 class AppConfig:
     documents: DocumentsConfig
     preprocessing: PreprocessingConfig
     llm: LlmConfig
     chunking: ChunkingConfig
+    metadata: MetadataConfig
 
 
 def load_documents_config(
@@ -163,6 +173,7 @@ def load_app_config(
 
     llm = LlmConfig(provider=provider, model=model, api_key=api_key)
     chunking = _chunking_config(data.get("chunking") or {})
+    metadata = _metadata_config(data.get("metadata") or {}, data.get("processing") or {}, root)
 
     return AppConfig(
         documents=DocumentsConfig(
@@ -179,6 +190,7 @@ def load_app_config(
         ),
         llm=llm,
         chunking=chunking,
+        metadata=metadata,
     )
 
 
@@ -226,3 +238,43 @@ def _chunk_int(env_name: str, raw, field: str) -> int:
         return int(raw)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"chunking.{field} must be an integer, got {raw!r}") from exc
+
+
+def _metadata_config(raw: dict, processing: dict, root: Path) -> MetadataConfig:
+    enabled = raw.get("enabled", True)
+    env_enabled = os.environ.get("METADATA_ENABLED")
+    if env_enabled is not None and env_enabled != "":
+        enabled = env_enabled
+    if isinstance(enabled, str):
+        enabled = enabled.lower() in {"1", "true", "yes"}
+    schema_raw = (
+        os.environ.get("METADATA_SCHEMA_PATH")
+        or raw.get("schema")
+        or DEFAULT_METADATA_SCHEMA_PATH
+    )
+    schema_path = Path(schema_raw)
+    if not schema_path.is_absolute():
+        schema_path = root / schema_path
+    batch_size = _positive_int(
+        "PROCESSING_BATCH_SIZE",
+        processing.get("batch_size", DEFAULT_BATCH_SIZE),
+        "processing.batch_size",
+    )
+    return MetadataConfig(
+        enabled=bool(enabled),
+        schema_path=schema_path.resolve(),
+        batch_size=batch_size,
+    )
+
+
+def _positive_int(env_name: str, raw, field: str) -> int:
+    env = os.environ.get(env_name)
+    if env is not None and env != "":
+        raw = env
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be an integer, got {raw!r}") from exc
+    if value < 1:
+        raise ValueError(f"{field} must be >= 1")
+    return value

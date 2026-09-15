@@ -1,35 +1,21 @@
-# STUB metadata schema — subject-independent field definitions.
-# Replace field lists with a project-specific schema via configuration.
-# Do not encode subject-specific logic in application code.
+# Metadata schema — field names and types for extraction.
+# Subject-specific terms belong here (and later in controlled_vocabularies), not in code.
+# This version uses free-text lists. Vocabularies are deferred (see doc/architecture.md Futures).
 
 version: 1
 fields:
   topic:
-    type: string
+    type: list
     required: false
+    description: Social factors and/or health conditions
   geography:
-    type: string
+    type: list
     required: false
   population:
-    type: string
+    type: list
     required: false
   time_period:
-    type: string
-    required: false
-  evidence_type:
-    type: string
-    required: false
-  organization:
-    type: string
-    required: false
-  technology:
-    type: string
-    required: false
-  version:
-    type: string
-    required: false
-  platform:
-    type: string
+    type: list
     required: false
 
 controlled_vocabularies: {}

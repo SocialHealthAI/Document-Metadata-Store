@@ -3,8 +3,16 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from document_metadata_store.models import AnnotatedBlock, Block, Chunk, SectionNode
+from document_metadata_store.models import (
+    AnnotatedBlock,
+    Block,
+    Chunk,
+    EnrichedChunk,
+    MetadataOrigin,
+    SectionNode,
+)
 from document_metadata_store.pipeline.chunker import ChunkRun
+from document_metadata_store.pipeline.extractor import MetadataRun
 from document_metadata_store.pipeline.loader import LoadRun
 from document_metadata_store.pipeline.preprocessor import PreprocessOutcome, PreprocessRun
 from document_metadata_store.pipeline.structure import StructureRun
@@ -188,6 +196,189 @@ def format_chunk_run(
         f"failed={counts['failed']}"
     )
     return "\n".join(lines) + "\n"
+
+
+HISTOGRAM_TOP_N = 10
+DEFAULT_METADATA_SAMPLE = 5
+_SAMPLE_LABELS = {
+    "topic": "topic",
+    "geography": "geo",
+    "population": "pop",
+    "time_period": "time",
+}
+
+
+def format_metadata_run(
+    run: MetadataRun,
+    *,
+    preview_blocks: int = 0,
+) -> str:
+    counts = run.counts()
+    lines = [
+        "document-metadata",
+        f"  enabled: {str(run.enabled).lower()}  batch_size: {run.batch_size}",
+        f"  records: {counts['records']}  with_any_field: {counts['with_any_field']}  "
+        f"llm_failed: {counts['llm_failed']}",
+    ]
+    retried = sum(item.document.llm_retries for item in run.outcomes)
+    if retried:
+        lines.append(
+            f"  llm_retried: {retried}  (large batches split after parse/max_tokens; chunks recovered)"
+        )
+    header_errors = _unique_run_errors(run)
+    for error in header_errors:
+        lines.append(f"  llm_error: {error}")
+    lines.append("")
+    if not run.enabled:
+        lines.insert(2, "  skipped: true")
+    sample_n = preview_blocks if preview_blocks > 0 else DEFAULT_METADATA_SAMPLE
+    for item in run.outcomes:
+        lines.append(f"  processed  {item.path}")
+        if item.skipped:
+            lines.append(f"             records: {item.records}  skipped: true")
+        else:
+            lines.append(
+                f"             records: {item.records}  with_any_field: {item.with_any_field}  "
+                f"llm_failed: {item.llm_failed}"
+            )
+            if item.document.llm_retries:
+                lines.append(
+                    f"             llm_retried: {item.document.llm_retries}  "
+                    "(batch split after parse/max_tokens; chunks recovered)"
+                )
+            for error in item.document.llm_errors:
+                lines.append(f"             llm_error:  {error}")
+            names = item.document.field_names or run.field_names
+            for name in names:
+                ranked = _histogram_terms(item.document.chunks, name, HISTOGRAM_TOP_N)
+                lines.append(f"             {name}:        {_format_histogram(ranked)}")
+            lines.append(f"             origins:      {_format_origins(item.document.chunks)}")
+            tagged = sum(1 for chunk in item.document.chunks if chunk.metadata.has_any())
+            lines.extend(_llm_chunk_diff_lines(item.document.chunks))
+            sample_label = "sample (tagged):" if tagged else "sample:"
+            lines.append(f"             {sample_label}")
+            lines.extend(
+                _metadata_sample_lines(
+                    item.document.chunks,
+                    names,
+                    sample_n,
+                    preview=preview_blocks > 0,
+                )
+            )
+        lines.append("")
+    for path, error in run.failed:
+        lines.append(f"  failed  {path}")
+        lines.append(f"          error: {error}")
+        lines.append("")
+    lines.append(
+        "summary: "
+        f"processed={counts['processed']} "
+        f"records={counts['records']} "
+        f"with_any_field={counts['with_any_field']} "
+        f"llm_failed={counts['llm_failed']} "
+        f"failed={counts['failed']}"
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _unique_run_errors(run: MetadataRun) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in run.outcomes:
+        for error in item.document.llm_errors:
+            if error not in seen:
+                seen.add(error)
+                ordered.append(error)
+    return ordered
+
+
+_FAILED_CHUNK_LINES = 15
+
+
+def _llm_chunk_diff_lines(chunks: list[EnrichedChunk]) -> list[str]:
+    ok = [(i, item) for i, item in enumerate(chunks, start=1) if not item.llm_failed]
+    failed = [(i, item) for i, item in enumerate(chunks, start=1) if item.llm_failed]
+    if not failed and not ok:
+        return []
+    lines = [
+        f"             llm_ok:     {len(ok)}  "
+        + (" ".join(f"c{i}" for i, _ in ok[:10]) + (" …" if len(ok) > 10 else "")).strip()
+    ]
+    lines.append(f"             llm_failed: {len(failed)}")
+    for index, item in failed[:_FAILED_CHUNK_LINES]:
+        chars = len(item.chunk.original_text)
+        heading = item.section_heading.replace('"', "'")[:40]
+        reason = item.llm_error or "llm_batch_failed"
+        lines.append(f"               c{index}  {chars} chars  \"{heading}\"  {reason}")
+    extra = len(failed) - _FAILED_CHUNK_LINES
+    if extra > 0:
+        lines.append(f"               … +{extra} more")
+    return lines
+
+
+def _histogram_terms(
+    chunks: list[EnrichedChunk],
+    field: str,
+    top_n: int,
+) -> list[tuple[str, int]]:
+    counts: dict[str, tuple[str, int]] = {}
+    for item in chunks:
+        for text in item.metadata.texts_for(field):
+            key = text.casefold()
+            if key not in counts:
+                counts[key] = (text, 1)
+            else:
+                display, n = counts[key]
+                counts[key] = (display, n + 1)
+    ranked = sorted(counts.values(), key=lambda pair: (-pair[1], pair[0].casefold()))
+    return ranked[:top_n]
+
+
+def _format_histogram(ranked: list[tuple[str, int]]) -> str:
+    if not ranked:
+        return "(none)"
+    return ", ".join(f"{name} ({count})" for name, count in ranked)
+
+
+def _format_origins(chunks: list[EnrichedChunk]) -> str:
+    counts: dict[MetadataOrigin, int] = {
+        "explicit": 0,
+        "inherited": 0,
+        "inferred": 0,
+        "unknown": 0,
+    }
+    for item in chunks:
+        for values in item.metadata.fields.values():
+            for value in values:
+                counts[value.origin] += 1
+    return " ".join(f"{name}={counts[name]}" for name in counts)
+
+
+def _metadata_sample_lines(
+    chunks: list[EnrichedChunk],
+    field_names: tuple[str, ...],
+    limit: int,
+    *,
+    preview: bool,
+) -> list[str]:
+    if not chunks:
+        return ["               (none)"]
+    numbered = list(enumerate(chunks, start=1))
+    tagged = [(index, item) for index, item in numbered if item.metadata.has_any()]
+    shown = (tagged or numbered)[:limit]
+    lines: list[str] = []
+    for index, item in shown:
+        parts = []
+        for name in field_names:
+            label = _SAMPLE_LABELS.get(name, name)
+            texts = item.metadata.texts_for(name)
+            joined = ", ".join(texts)
+            parts.append(f"{label}=[{joined}]")
+        lines.append(f"               c{index}   " + "  ".join(parts))
+        if preview:
+            text = _one_line(item.chunk.contextual_text, _PREVIEW_TEXT_WIDTH)
+            lines.append(f"                 {text}")
+    return lines
 
 
 def _chunk_preview_lines(chunks: list[Chunk], limit: int) -> list[str]:

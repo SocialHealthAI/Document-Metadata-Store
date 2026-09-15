@@ -280,3 +280,6 @@ def test_load_app_config_reads_cover_and_aliases() -> None:
     assert app.chunking.max_size == 1500
     assert app.chunking.min_size == 300
     assert app.chunking.overlap == 100
+    assert app.metadata.enabled
+    assert app.metadata.batch_size == 50
+    assert app.metadata.schema_path.name == "metadata_schema.yaml"

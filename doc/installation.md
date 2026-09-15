@@ -5,7 +5,7 @@
 - Python 3.12+, or Docker and Docker Compose
 - A copy of this repository
 
-Provider credentials for embeddings / metadata store are not required. Preprocess can run without `LLM_API_KEY` (alias/rules only). Anthropic is used when `LLM_PROVIDER=anthropic` and `LLM_API_KEY` are set.
+Provider credentials for embeddings / metadata store are not required. Preprocess and metadata extraction can run without `LLM_API_KEY` (aliases/rules; metadata fields stay Unknown). Anthropic is used when `LLM_PROVIDER=anthropic` and `LLM_API_KEY` are set. Metadata calls are batched (`PROCESSING_BATCH_SIZE` / `processing.batch_size`, default 50).
 
 ## Configure
 
@@ -30,7 +30,7 @@ python -m document_metadata_store --preview-blocks 20
 
 Or set `PREVIEW_BLOCKS=20` / `documents.preview_blocks` in `config.yaml` (default `0` = summary only).
 
-The command discovers `documents/`, loads text PDFs with **pypdf** (and **fonttools**), preprocesses keep/exclude marks, builds a retained section tree, then emits context-aware chunks. Exit status is `1` if any PDF failed to parse, preprocess, extract structure, or chunk.
+The command discovers `documents/`, loads text PDFs with **pypdf** (and **fonttools**), preprocesses keep/exclude marks, builds a retained section tree, emits context-aware chunks, then extracts metadata. Exit status is `1` if any PDF failed to parse, preprocess, extract structure, chunk, or extract metadata.
 
 ## Docker
 
@@ -39,7 +39,7 @@ docker compose build
 docker compose up
 ```
 
-The image installs the package and runs `python -m document_metadata_store` once (it is not a long-running server). Rebuild after code changes: `docker compose up --build`. Scroll to `document-structure` and `document-chunk` after preprocess. Short PDFs often show `excluded_sections: (none)` and one implicit title section split into size-bounded chunks.
+The image installs the package and runs `python -m document_metadata_store` once (it is not a long-running server). Rebuild after code changes: `docker compose up --build`. Scroll to `document-structure`, `document-chunk`, and `document-metadata` after preprocess. Without an API key, metadata histograms are empty (Unknown). Short PDFs often show `excluded_sections: (none)` and one implicit title section split into size-bounded chunks.
 
 To preview blocks without a rebuild, set `PREVIEW_BLOCKS` in `.env` (for example `PREVIEW_BLOCKS=20`) and run `docker compose up`. Or:
 
