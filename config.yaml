@@ -50,10 +50,6 @@ metadata:
   enabled: true
   schema: ./metadata_schema.yaml
 
-embeddings:
-  provider: ${EMBEDDING_PROVIDER}
-  model: ${EMBEDDING_MODEL}
-
 metadata_store:
   provider: ${METADATA_STORE_PROVIDER}
   collection: ${METADATA_STORE_COLLECTION}

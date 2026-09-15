@@ -7,11 +7,13 @@ from document_metadata_store.models import (
     AnnotatedBlock,
     Block,
     Chunk,
+    EmbeddedChunk,
     EnrichedChunk,
     MetadataOrigin,
     SectionNode,
 )
 from document_metadata_store.pipeline.chunker import ChunkRun
+from document_metadata_store.pipeline.embedder import EmbedRun
 from document_metadata_store.pipeline.extractor import MetadataRun
 from document_metadata_store.pipeline.loader import LoadRun
 from document_metadata_store.pipeline.preprocessor import PreprocessOutcome, PreprocessRun
@@ -375,6 +377,72 @@ def _metadata_sample_lines(
             joined = ", ".join(texts)
             parts.append(f"{label}=[{joined}]")
         lines.append(f"               c{index}   " + "  ".join(parts))
+        if preview:
+            text = _one_line(item.chunk.contextual_text, _PREVIEW_TEXT_WIDTH)
+            lines.append(f"                 {text}")
+    return lines
+
+
+DEFAULT_EMBED_SAMPLE = 5
+
+
+def format_embed_run(
+    run: EmbedRun,
+    *,
+    preview_blocks: int = 0,
+) -> str:
+    counts = run.counts()
+    lines = [
+        "document-embed",
+        f"  model: {run.model}  dim: {run.dim}  batch_size: {run.batch_size}",
+        f"  records: {counts['records']}  embedded: {counts['embedded']}  "
+        f"failed: {counts['embed_failed']}",
+        "",
+    ]
+    sample_n = preview_blocks if preview_blocks > 0 else DEFAULT_EMBED_SAMPLE
+    for item in run.outcomes:
+        lines.append(f"  processed  {item.path}")
+        lines.append(
+            f"             records: {item.records}  dim: {run.dim}  failed: {item.embed_failed}"
+        )
+        for error in item.document.embed_errors:
+            lines.append(f"             embed_error: {error}")
+        lines.append("             sample:")
+        lines.extend(
+            _embed_sample_lines(
+                item.document.chunks,
+                sample_n,
+                preview=preview_blocks > 0,
+            )
+        )
+        lines.append("")
+    for path, error in run.failed:
+        lines.append(f"  failed  {path}")
+        lines.append(f"          error: {error}")
+        lines.append("")
+    lines.append(
+        "summary: "
+        f"processed={counts['processed']} "
+        f"records={counts['records']} "
+        f"embedded={counts['embedded']} "
+        f"failed={counts['embed_failed']} "
+        f"errors={counts['failed']}"
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _embed_sample_lines(
+    chunks: list[EmbeddedChunk],
+    limit: int,
+    *,
+    preview: bool,
+) -> list[str]:
+    if not chunks:
+        return ["               (none)"]
+    lines: list[str] = []
+    for index, item in list(enumerate(chunks, start=1))[:limit]:
+        chars = len(item.chunk.contextual_text)
+        lines.append(f"               c{index}   chars={chars}")
         if preview:
             text = _one_line(item.chunk.contextual_text, _PREVIEW_TEXT_WIDTH)
             lines.append(f"                 {text}")

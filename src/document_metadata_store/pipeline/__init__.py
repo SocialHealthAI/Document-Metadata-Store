@@ -1,4 +1,5 @@
 from document_metadata_store.pipeline.chunker import ChunkRun, chunk_documents
+from document_metadata_store.pipeline.embedder import EmbedRun, embed_documents
 from document_metadata_store.pipeline.extractor import MetadataRun, extract_metadata_documents
 from document_metadata_store.pipeline.loader import DocumentLoader, LoadRun, load_documents
 from document_metadata_store.pipeline.preprocessor import PreprocessRun, preprocess_documents
@@ -16,4 +17,6 @@ __all__ = [
     "chunk_documents",
     "MetadataRun",
     "extract_metadata_documents",
+    "EmbedRun",
+    "embed_documents",
 ]

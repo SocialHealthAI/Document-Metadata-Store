@@ -2,7 +2,7 @@
 
 A generalized tool for converting documents into searchable, context-aware knowledge records. Subject-specific behavior is supplied through configuration, metadata schemas, controlled vocabularies, and prompts — not application code.
 
-**Status:** Document load (text PDFs), preprocessing (keep/exclude), structure extraction, context-aware chunking, and metadata extraction are implemented. Later pipeline stages are not.
+**Status:** Document load (text PDFs), preprocessing (keep/exclude), structure extraction, context-aware chunking, metadata extraction, and embedding generation are implemented. The metadata store is not.
 
 ## Canonical documents
 
@@ -27,7 +27,7 @@ Or with Docker: `docker compose up --build`. See [doc/installation.md](doc/insta
 ## Repository layout (scaffolding)
 
 ```text
-src/document_metadata_store/   # Load through metadata extraction
+src/document_metadata_store/   # Load through embedding generation
 config.yaml                    # Processing configuration (exclude_sections, aliases, chunking, metadata)
 metadata_schema.yaml           # Extracted field names (this version: four list fields)
 documents/                     # Source documents (never modified in place)

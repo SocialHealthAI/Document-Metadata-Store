@@ -18,6 +18,7 @@
 | [structure-extractor](active/structure-extractor/feature-brief.md) | Structure extraction (section tree) | Implemented | 2026-09-13 |
 | [context-aware-chunking](active/context-aware-chunking/feature-brief.md) | Context-aware chunking | Implemented | 2026-09-14 |
 | [metadata-extraction](active/metadata-extraction/feature-brief.md) | Metadata extraction (topic, geography, population, time period) | Implemented | 2026-09-14 |
+| [embedding](active/embedding/feature-brief.md) | Embedding generation (local MiniLM) | Implemented | 2026-09-15 |
 
 ### Completed Features
 

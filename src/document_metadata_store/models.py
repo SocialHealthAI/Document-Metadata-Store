@@ -288,3 +288,48 @@ class EnrichedDocument:
 
     def llm_failed_count(self) -> int:
         return sum(1 for item in self.chunks if item.llm_failed)
+
+
+@dataclass(frozen=True)
+class EmbeddedChunk:
+    item: EnrichedChunk
+    embedding: tuple[float, ...] = ()
+    dim: int = 0
+    model: str = ""
+    embed_failed: bool = False
+    embed_error: str | None = None
+
+    @property
+    def chunk(self) -> Chunk:
+        return self.item.chunk
+
+    @property
+    def chunk_id(self) -> str:
+        return self.item.chunk_id
+
+    @property
+    def metadata(self) -> ChunkMetadata:
+        return self.item.metadata
+
+    @property
+    def section_heading(self) -> str:
+        return self.item.section_heading
+
+
+@dataclass(frozen=True)
+class EmbeddedDocument:
+    metadata: DocumentMetadata
+    source: str
+    chunks: list[EmbeddedChunk] = field(default_factory=list)
+    model: str = ""
+    dim: int = 0
+    embed_errors: tuple[str, ...] = ()
+
+    def chunk_count(self) -> int:
+        return len(self.chunks)
+
+    def embedded_count(self) -> int:
+        return sum(1 for item in self.chunks if not item.embed_failed and item.dim > 0)
+
+    def embed_failed_count(self) -> int:
+        return sum(1 for item in self.chunks if item.embed_failed)

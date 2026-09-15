@@ -12,7 +12,7 @@ Chunks are bounded retrieval units with headings, but they have no structured ap
 
 ## Target Users
 
-The same operators as load through chunk: they drop PDFs in `documents/`, run one command, and need a compact per-document metadata recap (not 500 lines) before validation, embed, and store.
+The same operators as load through chunk: they drop PDFs in `documents/`, run one command, and need a compact per-document metadata recap (not 500 lines) before embed and store.
 
 ## Core Requirements
 
@@ -37,7 +37,6 @@ The same operators as load through chunk: they drop PDFs in `documents/`, run on
 - [ ] Cheap date/place regex as a fallback when no LLM key (otherwise all fields stay Unknown)
 - [ ] Persist an inspectable metadata dump (product spec §18)
 - [ ] Controlled vocabularies and aliases (deferred until store **filters** exist)
-- [ ] Metadata validation (product spec §8 — next slice)
 
 ## Technical Approach
 
@@ -65,7 +64,7 @@ Schema file `metadata_schema.yaml` is the source of field names and types (`list
 - **One topic field:** social factors and health conditions share `topic`
 - **Free-text this slice:** no vocab; do not treat embedding synonymy as a substitute for later filter aliases
 - **Per-chunk LLM:** no inherit-first pass; headings already sit in `contextual_text`
-- **Validation next:** this slice classifies provenance; it does not enforce required fields or vocab
+- **No validation stage:** provenance is classified here; required fields / vocab are not a pipeline step
 - **Histogram console:** WHO ~500 chunks must not dump every record
 
 ### Extraction (locked)
@@ -138,6 +137,7 @@ Failed LLM batches are **split in half and retried** down to one chunk so a trun
 | 1.1 | 2026-09-14 | Vocab deferred to architecture Futures | Free-text lists this slice; filter aliases later |
 | 1.2 | 2026-09-14 | Batch LLM calls; implemented | processing.batch_size; histogram console |
 | 1.3 | 2026-09-15 | Split-retry failed batches; sample tagged chunks | WHO/HP log: llm_failed hid later tags |
+| 1.4 | 2026-09-15 | Drop metadata-validation follow-on | Extraction tests stand in; pipeline is extract → embed |
 
 ---
 

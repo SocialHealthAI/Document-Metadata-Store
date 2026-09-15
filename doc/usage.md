@@ -1,18 +1,18 @@
 # Usage
 
-**Status:** Load, preprocess, structure extraction, context-aware chunking, and metadata extraction run in one command. Later stages are not implemented.
+**Status:** Load, preprocess, structure extraction, context-aware chunking, metadata extraction, and embedding generation run in one command. The metadata store is not implemented.
 
 ## Intended workflow
 
 1. Place documents in `documents/` (or the path set in `config.yaml` / `DOCUMENTS_INPUT_PATH`).
-2. Configure preprocessing, chunking, metadata, embeddings, and store in `config.yaml`.
+2. Configure preprocessing, chunking, metadata, and store in `config.yaml`.
 3. Point `metadata.schema` at a subject-specific `metadata_schema.yaml`.
 4. Run `python -m document_metadata_store` (or `docker compose up`).
 5. Inspect the processing manifest and intermediate results before relying on stored records.
 
 ## Processing modes
 
-- **Standard:** load → preprocess → structure → chunk → extract metadata → validate → embed → store
+- **Standard:** load → preprocess → structure → chunk → extract metadata → embed → store
 - **Metadata-disabled:** load → preprocess → structure → chunk → embed → store
 
 Preprocessing and context preservation remain available when metadata extraction is off.
@@ -127,7 +127,27 @@ document-metadata
 
 Sample size is `preview_blocks` when set, otherwise 5 **tagged** chunks (original `cN`). Empty leading chunks from a failed batch are skipped in the sample. Histograms are top 10 terms, case-insensitive. If a large batch hits `max_tokens` or bad JSON, it is split and retried. Recovered splits print `llm_retried: N`, not `llm_error:`. `llm_error:` is only for chunks that still failed after retries.
 
-By default the console does **not** print block text. To sample the tree, set `preview_blocks` / `PREVIEW_BLOCKS` / `--preview-blocks N` (first N blocks of each loaded document, one line each, text truncated). Metadata preview also includes truncated `contextual_text` on the sample.
+### Console (embed step)
+
+After metadata, the same command encodes each chunk’s `contextual_text` with local MiniLM (`all-MiniLM-L6-v2`, 384-dim). Metadata lists are not concatenated into the vector. There are no embedding settings in `config.yaml` or `.env`. `metadata.enabled: false` still embeds those chunks. Encode is batched with `processing.batch_size`.
+
+The console is **counts + a small sample**, not one vector per chunk:
+
+```text
+document-embed
+  model: all-MiniLM-L6-v2  dim: 384  batch_size: 50
+  records: 519  embedded: 519  failed: 0
+
+  processed  documents/World report on social determinants of health equity, WHO 2025.pdf
+             records: 519  dim: 384  failed: 0
+             sample:
+               c1   chars=842
+               c41  chars=1204
+```
+
+Sample size is `preview_blocks` when set, otherwise 5. Do not print vector components. Preview adds truncated `contextual_text` on the sample.
+
+By default the console does **not** print block text. To sample the tree, set `preview_blocks` / `PREVIEW_BLOCKS` / `--preview-blocks N` (first N blocks of each loaded document, one line each, text truncated). Metadata and embed preview also include truncated `contextual_text` on the sample.
 
 ```text
 document-load
@@ -152,7 +172,7 @@ Users should be able to inspect, at minimum:
 3. Retained structure
 4. Generated chunks
 5. Extracted metadata
-6. Validated metadata
+6. Embeddings
 7. Final metadata-store records
 
 ## Commands
@@ -163,4 +183,4 @@ python -m document_metadata_store --config config.yaml
 python -m document_metadata_store --preview-blocks 20
 ```
 
-Runs load, preprocess, structure, chunk, then metadata extraction against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude; structure preview samples outline nodes; chunk preview samples `contextual_text`; metadata preview adds truncated text on the sample). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for leftover heading classification and metadata extraction; omit the key to use aliases/rules for preprocess and leave metadata Unknown.
+Runs load, preprocess, structure, chunk, metadata extraction, then embedding against `documents/` (or `DOCUMENTS_INPUT_PATH`). `--preview-blocks` prints the first N blocks per document (preprocess preview includes keep/exclude; structure preview samples outline nodes; chunk preview samples `contextual_text`; metadata and embed preview add truncated text on the sample). Set `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-sonnet-5`, and `LLM_API_KEY` for leftover heading classification and metadata extraction; omit the key to use aliases/rules for preprocess and leave metadata Unknown. Embeddings always run locally (no embedding API key).

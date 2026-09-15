@@ -30,7 +30,7 @@ The primary objectives are to:
 
 The processing pipeline is:
 
-**Document → Preprocessing → Structure Extraction → Context-Aware Chunking → Metadata Extraction → Metadata Validation → Embedding Generation → Metadata Store**
+**Document → Preprocessing → Structure Extraction → Context-Aware Chunking → Metadata Extraction → Embedding Generation → Metadata Store**
 
 Each stage should have a defined responsibility and should be independently configurable.
 
@@ -79,7 +79,8 @@ The locked load contract is:
 ```text
 NormalizedDocument
   metadata          # id, title, author, organization, publication_date,
-                    # source, source_url, document_type, language, version
+                    # source, source_url, 
+                    document_type, language, version
   source            # original path; read-only; never written back
   pages[]
     page_number
@@ -370,33 +371,7 @@ The system must not invent metadata simply to populate a field.
 
 Where practical, metadata should include confidence and the level at which the value was established.
 
-***
-
-# 8. Metadata Validation
-
-Metadata must be validated before being stored.
-
-Validation should check:
-
-* Required fields
-
-* Data types
-
-* Valid dates
-
-* Controlled vocabulary values
-
-* Geographic consistency
-
-* Conflicting metadata
-
-* Unsupported values
-
-* Missing required information
-
-Validation errors should be reported rather than silently changing source information.
-
-Non-critical issues may be recorded as warnings.
+There is no metadata-validation stage. Missing fields stay Unknown; the system must not invent fillers. Extraction tests and operator histograms are the quality check.
 
 ***
 
@@ -404,13 +379,11 @@ Non-critical issues may be recorded as warnings.
 
 The Embedding stage converts each knowledge unit into a vector representation.
 
-Embedding providers and models must be configurable.
+This version uses a local sentence-transformers model (`all-MiniLM-L6-v2`) in the application image. Operators do not configure an embedding provider, model, or API key.
 
-The text supplied to the embedding model should contain the context necessary to understand the knowledge unit.
+The text supplied to the embedding model should contain the context necessary to understand the knowledge unit (`contextual_text`).
 
 Structured metadata should remain separately available for filtering and ranking.
-
-The embedding implementation should not be tied to a specific vendor or model.
 
 ***
 
@@ -492,7 +465,6 @@ Load
 → Structure
 → Chunk
 → Extract Metadata
-→ Validate Metadata
 → Embed
 → Store
 ```
@@ -552,10 +524,6 @@ metadata:
   enabled: true
   schema: ./metadata_schema.yaml
 
-embeddings:
-  provider: ...
-  model: ...
-
 metadata_store:
   provider: ...
   collection: ...
@@ -610,8 +578,6 @@ Forced processing must rerun all applicable stages, including:
 
 * Metadata extraction
 
-* Metadata validation
-
 * Embedding generation
 
 * Metadata Store updates
@@ -657,8 +623,6 @@ Each processing run should produce a manifest containing:
 * Preprocessing configuration
 
 * Metadata extraction results
-
-* Metadata validation warnings/errors
 
 * Embedding model
 
@@ -710,7 +674,7 @@ At minimum, users should be able to inspect:
 
 5. Extracted metadata
 
-6. Validated metadata
+6. Embeddings
 
 7. Final Metadata Store records
 
@@ -750,7 +714,6 @@ Preprocessor
 StructureExtractor
 Chunker
 MetadataExtractor
-MetadataValidator
 EmbeddingProvider
 MetadataStore
 ManifestManager
@@ -782,8 +745,6 @@ Subject-specific behavior should instead be provided through:
 * Section classification rules
 
 * Prompts
-
-* Embedding configuration
 
 * Metadata Store configuration
 
@@ -838,27 +799,25 @@ The Document Metadata Store must:
 
 11. Distinguish explicit, inherited, inferred, and unknown metadata.
 
-12. Validate extracted metadata.
+12. Preserve provenance.
 
-13. Preserve provenance.
+13. Generate embeddings (local sentence-transformers; not operator-configured).
 
-14. Generate configurable embeddings.
+14. Support semantic and metadata-based retrieval.
 
-15. Support semantic and metadata-based retrieval.
+15. Support incremental processing.
 
-16. Support incremental processing.
+16. Support forced reprocessing.
 
-17. Support forced reprocessing.
+17. Replace obsolete records when documents are reprocessed.
 
-18. Replace obsolete records when documents are reprocessed.
+18. Maintain a processing manifest.
 
-19. Maintain a processing manifest.
+19. Provide inspection of intermediate processing results.
 
-20. Provide inspection of intermediate processing results.
+20. Remain independent of any particular subject domain.
 
-21. Remain independent of any particular subject domain.
-
-22. Avoid generating unnecessary contextual prose when document structure already provides the required context.
+21. Avoid generating unnecessary contextual prose when document structure already provides the required context.
 
 ***
 
@@ -878,3 +837,4 @@ The Document Metadata Store should improve retrieval by preserving the informati
 |------|--------|
 | 2026-09-06 | §3: locked block-level `NormalizedDocument` contract (pages → reading-order blocks) so preprocessing, section detection, and metadata can consume load output without reconstructing lost PDF layout. |
 | 2026-09-09 | §4.1–4.2 and §13: keep references/citations by default; exclusion remains configurable via `exclude_sections`. |
+| 2026-09-15 | Removed metadata validation from the pipeline and §8. Embeddings are local sentence-transformers (`all-MiniLM-L6-v2`) with no config/env knobs. |
