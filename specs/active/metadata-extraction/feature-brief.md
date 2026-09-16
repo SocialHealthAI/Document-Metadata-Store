@@ -23,7 +23,7 @@ The same operators as load through chunk: they drop PDFs in `documents/`, run on
 - [x] This version’s schema is **four fields only:** `topic`, `geography`, `population`, `time_period`. Extra stub fields (`evidence_type`, `organization`, …) are **out of this schema** until a later version
 - [x] **`topic` is one field** whose values may be social factors (housing, income, discrimination, …) **or** health conditions (diabetes, maternal mortality, …). Do not split into two fields
 - [x] Each field is a **list of 0..n values**. Empty list = **Unknown**. Do not invent a value to fill a slot
-- [x] Values are **free-text phrases** grounded in the chunk (including its heading prefix). No controlled vocabulary in this slice
+- [x] Values are **free-text phrases** grounded in the chunk (including its heading prefix), except **`time_period` is calendar years** (see Extraction). No controlled vocabulary in this slice
 - [x] Extract **per chunk** with the LLM (same Anthropic adapter as preprocess/structure). Do not run a separate document/section extraction pass. **Batch** chunks into LLM requests (`processing.batch_size`, default 50)
 - [x] Each value carries **provenance:** `explicit` | `inherited` | `inferred` | `unknown`, plus optional confidence. `inherited` means the value comes from heading/document context in `contextual_text`, not from a prior pipeline pass
 - [x] Subject-independent: field names, prompts, and schema path live in `metadata_schema.yaml` / `config.yaml` `metadata.schema` — not `if subject == …`
@@ -65,6 +65,7 @@ Schema file `metadata_schema.yaml` is the source of field names and types (`list
 - **Free-text this slice:** no vocab; do not treat embedding synonymy as a substitute for later filter aliases
 - **Per-chunk LLM:** no inherit-first pass; headings already sit in `contextual_text`
 - **No validation stage:** provenance is classified here; required fields / vocab are not a pipeline step
+- **Time is years, not ranges:** `time_period` stores `"2019"`, `"2020"`, … so a filter of `["2020"]` matches a 2019–2022 span. Expand in the prompt **and** after parse. Vague phrases and spans longer than 25 years are omitted
 - **Histogram console:** WHO ~500 chunks must not dump every record
 
 ### Extraction (locked)
@@ -77,6 +78,7 @@ Schema file `metadata_schema.yaml` is the source of field names and types (`list
    - origin in explicit | inherited | inferred | unknown
    - topic values may be social factors or health conditions
    - only values grounded in the supplied text; else omit (Unknown)
+   - time_period: calendar years only; expand 2019-2022 → 2019, 2020, 2021, 2022 (code also expands if the LLM emits a range)
 3. No LLM / parse failure → split the batch and retry; a single-chunk failure stays Unknown; continue
 4. Do not rewrite original_text or contextual_text
 ```
@@ -92,7 +94,7 @@ document-metadata
              topic:        housing (41), income (28), diabetes (6), …
              geography:    Kenya (12), Brazil (9), global (80), …
              population:   adults (22), children (11), …
-             time_period:  2020-2023 (18), 2015 (7), …
+             time_period:  2020 (18), 2021 (15), 2015 (7), …
              origins:      explicit=612 inferred=40 inherited=88 unknown=44
              sample:
                c1   topic=[housing instability]  geo=[Kenya]  pop=[]  time=[2022]
@@ -123,7 +125,6 @@ Failed LLM batches are **split in half and retried** down to one chunk so a trun
 
 ## Open Questions
 
-- Time-period normalization (raw `2020-2023` vs structured start/end) — free-text strings this slice
 - Batch size for Anthropic when WHO is ~500 chunks — locked: `processing.batch_size` (default 50)
 - When store filters land: aliases/vocab for `United States` / `USA` / `US` as filter keys — **not** by embedding the tag strings. Tracked in `doc/architecture.md` **Futures** (metadata controlled vocabularies)
 
@@ -138,6 +139,7 @@ Failed LLM batches are **split in half and retried** down to one chunk so a trun
 | 1.2 | 2026-09-14 | Batch LLM calls; implemented | processing.batch_size; histogram console |
 | 1.3 | 2026-09-15 | Split-retry failed batches; sample tagged chunks | WHO/HP log: llm_failed hid later tags |
 | 1.4 | 2026-09-15 | Drop metadata-validation follow-on | Extraction tests stand in; pipeline is extract → embed |
+| 1.5 | 2026-09-16 | `time_period` is calendar years; ranges expanded | Agent filter `["2020"]` must match a 2019–2022 span |
 
 ---
 

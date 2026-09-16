@@ -10,6 +10,7 @@
 - [x] **orchestrator + CLI**: after chunk; histogram + sample console
 - [x] **tests**: lists, mixed topic, skip/disabled, batching, WHO + Healthy People
 - [x] **docs**: architecture, usage, installation, README, index, brief
+- [x] **time years**: expand ranges to calendar years (brief v1.5)
 
 ## Progress
 ### Done

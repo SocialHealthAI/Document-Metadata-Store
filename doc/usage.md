@@ -105,7 +105,7 @@ Always print **one line per chunk** (id, section heading, original char count, s
 
 ### Console (metadata step)
 
-After chunking, the same command extracts schema fields (`topic`, `geography`, `population`, `time_period`) as free-text lists on each chunk. Values are grounded in `contextual_text`. Extraction is batched (`processing.batch_size`, default 50). Without `LLM_API_KEY`, fields stay empty (Unknown) and the run still succeeds. `metadata.enabled: false` skips extraction.
+After chunking, the same command extracts schema fields (`topic`, `geography`, `population`, `time_period`) as lists on each chunk. Topic, geography, and population are free-text. `time_period` is **calendar years** only (a span such as 2019–2022 is stored as `2019`, `2020`, `2021`, `2022`). Values are grounded in `contextual_text`. Extraction is batched (`processing.batch_size`, default 50). Without `LLM_API_KEY`, fields stay empty (Unknown) and the run still succeeds. `metadata.enabled: false` skips extraction.
 
 The console is a **histogram + sample of tagged chunks**, not one line per chunk:
 
@@ -119,7 +119,7 @@ document-metadata
              topic:        housing (41), income (28), diabetes (6)
              geography:    Kenya (12), Brazil (9), global (80)
              population:   adults (22), children (11)
-             time_period:  2020-2023 (18), 2015 (7)
+             time_period:  2020 (18), 2021 (15), 2015 (7)
              origins:      explicit=612 inherited=88 inferred=40 unknown=0
              sample (tagged):
                c41  topic=[housing instability]  geo=[Kenya]  pop=[]  time=[2022]
@@ -163,7 +163,78 @@ document-load
             p1-b2  text  ...
 ```
 
+## Agent query (intended)
+
+The metadata store is not implemented yet. When it is, an agent retrieves knowledge records with **semantic search** plus optional **metadata filters**. It does not query the section tree. Headings already sit in each chunk’s `contextual_text` (that is what was embedded).
+
+Use the **same** embedding model as ingest (`all-MiniLM-L6-v2`, 384-dim). Do not embed metadata tag strings or cosine them against the chunk vector.
+
+### Tool shape
+
+```text
+search(
+  query: "Did housing instability among adults in Kenya change after 2020?",
+  filters: {
+    geography: ["Kenya"],
+    topic: ["housing instability", "housing"],
+    population: ["adults", "adult"],
+    time_period: ["2020", "2021", "2022"]
+  },
+  k: 8
+)
+```
+
+The store should:
+
+1. Embed `query`.
+2. Filter records whose lists **overlap** the filter values (see OR/AND below).
+3. Rank the rest by similarity to the query vector (optional extra boost when tags overlap).
+4. Return `{text, metadata, provenance, score}` — not raw vectors. Cite document, section, and page from provenance.
+
+Omit a filter field (or pass an empty list) to leave that axis unconstrained. Empty / Unknown tags on a chunk do **not** satisfy a required filter.
+
+### OR within a field, AND across fields
+
+Values in **one** filter list are **OR**. Different fields are **AND**.
+
+`geography: ["Ohio", "OH"]` matches a chunk tagged `Ohio` **or** `OH`.  
+`geography: ["Ohio", "OH"]` plus `time_period: ["2020"]` means (Ohio **or** OH) **and** 2020.
+
+Do not OR across fields (Ohio **or** 2020).
+
+### Synonyms (query-side)
+
+Tags are free-text. Exact string overlap is brittle (`"Ohio"` ≠ `"OH"`). Until a store vocabulary exists (`doc/architecture.md` Futures), the **agent that builds the query** should expand names into a synonym list for each filter field it sets.
+
+**Geography (most useful).** Always expand places:
+
+- Country: `United States`, `USA`, `US`, `U.S.`
+- Subdivision: `Ohio`, `OH` (and official name if known)
+- City: `New York City`, `NYC`, `New York`
+- Informal region only if the user meant it: `Midwest` — do not add it automatically for every Ohio query
+
+**Topic.** Expand **abbreviations and equivalent names**, not looser related ideas:
+
+- `tuberculosis`, `TB`
+- `HIV`, `HIV/AIDS`
+- `maternal mortality`, `MMR` (only if that abbreviation is used in the corpus)
+
+Do **not** treat `housing` as interchangeable with every housing-related phrase. Prefer the user’s wording plus 1–2 close aliases from the metadata histogram, not a long related-term list.
+
+**Population.** Expand grammatical and clinical variants:
+
+- `adults`, `adult`
+- `children`, `child`, `pediatric`
+- `women`, `female`, `females`
+
+Avoid loading extra groups the user did not ask for (`elderly` is not a synonym of `adults`).
+
+**Time period.** Extraction stores **calendar years** (`2019`, `2020`), expanding spans such as `2019-2022`. A filter of `["2020"]` therefore overlaps a 2019–2022 chunk. On the query, still expand a user span to a year list. Equivalent writings: `2020`, `FY2020` (ingestion maps FY2020 → `2020`). Do not add neighboring years the user did not ask for. Vague phrases (`2020s`) are omitted at extraction.
+
+**What the vector is for.** Synonym lists fix **filters**. US / USA / United States in **prose** can still match via cosine on `contextual_text` even when tags differ. Use both: a specific query string, plus expanded filters when the agent is sure of place, time, population, or topic.
+
 ## Inspection
+
 
 Users should be able to inspect, at minimum:
 

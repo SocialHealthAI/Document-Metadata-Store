@@ -17,5 +17,6 @@ fields:
   time_period:
     type: list
     required: false
+    description: Calendar years only (2019, 2020). Spans such as 2019-2022 are expanded to each year.
 
 controlled_vocabularies: {}

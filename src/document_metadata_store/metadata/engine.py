@@ -9,6 +9,7 @@ from document_metadata_store.metadata.llm import (
     empty_metadata,
 )
 from document_metadata_store.metadata.schema import MetadataSchema
+from document_metadata_store.metadata.time import normalize_time_field
 from document_metadata_store.models import (
     Chunk,
     ChunkedDocument,
@@ -101,7 +102,7 @@ def _extract_batch(
     if matched and len(matched) == len(batch):
         return (
             [
-                EnrichedChunk(chunk=chunk, metadata=matched[chunk.chunk_id])
+                EnrichedChunk(chunk=chunk, metadata=normalize_time_field(matched[chunk.chunk_id]))
                 for chunk in batch
             ],
             0,
@@ -109,7 +110,7 @@ def _extract_batch(
     if matched:
         missing = [chunk for chunk in batch if chunk.chunk_id not in matched]
         kept = [
-            EnrichedChunk(chunk=chunk, metadata=matched[chunk.chunk_id])
+            EnrichedChunk(chunk=chunk, metadata=normalize_time_field(matched[chunk.chunk_id]))
             for chunk in batch
             if chunk.chunk_id in matched
         ]

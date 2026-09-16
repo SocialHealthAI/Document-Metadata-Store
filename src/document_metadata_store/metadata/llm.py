@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from document_metadata_store.config import LlmConfig
 from document_metadata_store.metadata.schema import MetadataSchema
+from document_metadata_store.metadata.time import TIME_FIELD, expand_time_values
 from document_metadata_store.models import (
     Chunk,
     ChunkMetadata,
@@ -143,6 +144,9 @@ def _batch_prompt(chunks: list[Chunk], schema: MetadataSchema) -> str:
         "origin=inherited only when the value comes from Section:/Subsection: heading lines.",
         "origin=explicit when stated in the body. origin=inferred when clearly implied. "
         "Use an empty list when unknown. Do not invent values that are not grounded in that chunk.",
+        "time_period values are calendar years only (2019, 2020). Expand a span such as "
+        "2019-2022 or 2019 to 2022 into each year. Do not emit range strings. "
+        "FY2020 is 2020. Omit vague phrases (2020s, last decade) and spans longer than 25 years.",
         "Return only compact JSON keyed by the integer index shown before each chunk (0, 1, 2, …). "
         "No markdown fences, no commentary, no preamble.",
         "",
@@ -199,7 +203,10 @@ def _parse_batch(
 def _chunk_metadata(payload: dict, schema: MetadataSchema) -> ChunkMetadata:
     fields: dict[str, tuple[MetadataValue, ...]] = {}
     for name in schema.field_names:
-        fields[name] = _parse_values(payload.get(name))
+        parsed = _parse_values(payload.get(name))
+        if name == TIME_FIELD:
+            parsed = expand_time_values(parsed)
+        fields[name] = parsed
     return ChunkMetadata(fields=fields)
 
 

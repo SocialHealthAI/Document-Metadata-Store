@@ -120,8 +120,43 @@ def test_lists_and_mixed_topic() -> None:
     meta = doc.chunks[0].metadata
     assert meta.texts_for("topic") == ("housing instability", "diabetes")
     assert meta.texts_for("geography") == ("Kenya",)
-    assert meta.texts_for("time_period") == ("2022", "2020-2023")
+    assert meta.texts_for("time_period") == ("2020", "2021", "2022", "2023")
     assert meta.texts_for("population") == ()
+
+
+def test_time_period_expands_ranges_and_drops_vague() -> None:
+    from document_metadata_store.metadata.time import years_from_text
+
+    assert years_from_text("2019-2022") == ("2019", "2020", "2021", "2022")
+    assert years_from_text("2019–2022") == ("2019", "2020", "2021", "2022")
+    assert years_from_text("2019 to 2022") == ("2019", "2020", "2021", "2022")
+    assert years_from_text("FY2020") == ("2020",)
+    assert years_from_text("2015") == ("2015",)
+    assert years_from_text("2020s") == ()
+    assert years_from_text("1960-2020") == ()
+
+
+def test_parse_batch_expands_time_range_json() -> None:
+    schema = default_schema()
+    chunk = _chunk(1, "Kenya programs ran from 2019 to 2022.")
+    raw = """
+    {
+      "0": {
+        "topic": [],
+        "geography": [{"value": "Kenya", "origin": "explicit"}],
+        "population": [],
+        "time_period": [{"value": "2019-2022", "origin": "explicit"}]
+      }
+    }
+    """
+    parsed = _parse_batch(raw, [chunk], schema)
+    assert parsed is not None
+    assert parsed[chunk.chunk_id].texts_for("time_period") == (
+        "2019",
+        "2020",
+        "2021",
+        "2022",
+    )
 
 
 def test_batches_chunks_to_llm() -> None:
