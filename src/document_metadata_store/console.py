@@ -18,6 +18,7 @@ from document_metadata_store.pipeline.extractor import MetadataRun
 from document_metadata_store.pipeline.loader import LoadRun
 from document_metadata_store.pipeline.preprocessor import PreprocessOutcome, PreprocessRun
 from document_metadata_store.pipeline.structure import StructureRun
+from document_metadata_store.pipeline.storer import StoreRun
 
 _PREVIEW_TEXT_WIDTH = 120
 
@@ -443,6 +444,73 @@ def _embed_sample_lines(
     for index, item in list(enumerate(chunks, start=1))[:limit]:
         chars = len(item.chunk.contextual_text)
         lines.append(f"               c{index}   chars={chars}")
+        if preview:
+            text = _one_line(item.chunk.contextual_text, _PREVIEW_TEXT_WIDTH)
+            lines.append(f"                 {text}")
+    return lines
+
+
+DEFAULT_STORE_SAMPLE = 5
+
+
+def format_store_run(
+    run: StoreRun,
+    *,
+    preview_blocks: int = 0,
+) -> str:
+    counts = run.counts()
+    lines = [
+        "document-store",
+        f"  provider: {run.provider}  collection: {run.collection}  path: {run.persist_path}",
+        f"  records: {counts['records']}  upserted: {counts['upserted']}  "
+        f"failed: {counts['failed']}",
+        "",
+    ]
+    sample_n = preview_blocks if preview_blocks > 0 else DEFAULT_STORE_SAMPLE
+    for item in run.outcomes:
+        lines.append(f"  processed  {item.path}")
+        lines.append(
+            f"             records: {item.records}  upserted: {item.upserted}  "
+            f"replaced: {item.replaced}"
+        )
+        if item.skipped:
+            lines.append(f"             skipped: {item.skipped}")
+        lines.append("             sample:")
+        lines.extend(
+            _store_sample_lines(item.document, sample_n, preview=preview_blocks > 0)
+        )
+        lines.append("")
+    for path, error in run.failed:
+        lines.append(f"  failed  {path}")
+        lines.append(f"          error: {error}")
+        lines.append("")
+    lines.append(
+        "summary: "
+        f"processed={counts['processed']} "
+        f"records={counts['records']} "
+        f"upserted={counts['upserted']} "
+        f"failed={counts['failed']}"
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _store_sample_lines(document, limit: int, *, preview: bool) -> list[str]:
+    stored = [
+        (index, item)
+        for index, item in enumerate(document.chunks, start=1)
+        if not item.embed_failed and item.dim > 0
+    ]
+    if not stored:
+        return ["               (none)"]
+    lines: list[str] = []
+    for index, item in stored[:limit]:
+        meta = item.metadata
+        topic = ", ".join(meta.texts_for("topic"))
+        geo = ", ".join(meta.texts_for("geography"))
+        time = ", ".join(meta.texts_for("time_period"))
+        lines.append(
+            f"               c{index}   topic=[{topic}]  geo=[{geo}]  time=[{time}]"
+        )
         if preview:
             text = _one_line(item.chunk.contextual_text, _PREVIEW_TEXT_WIDTH)
             lines.append(f"                 {text}")

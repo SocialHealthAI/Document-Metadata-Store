@@ -16,6 +16,9 @@ DEFAULT_CHUNK_MIN = 300
 DEFAULT_CHUNK_OVERLAP = 100
 DEFAULT_METADATA_SCHEMA_PATH = Path("metadata_schema.yaml")
 DEFAULT_BATCH_SIZE = 50
+DEFAULT_STORE_PROVIDER = "chroma"
+DEFAULT_STORE_COLLECTION = "knowledge"
+DEFAULT_STORE_PERSIST_PATH = Path("data/metadata-store")
 
 DEFAULT_EXCLUDE_SECTIONS = (
     "cover",
@@ -94,12 +97,20 @@ class MetadataConfig:
 
 
 @dataclass(frozen=True)
+class StoreConfig:
+    provider: str = DEFAULT_STORE_PROVIDER
+    collection: str = DEFAULT_STORE_COLLECTION
+    persist_path: Path = DEFAULT_STORE_PERSIST_PATH
+
+
+@dataclass(frozen=True)
 class AppConfig:
     documents: DocumentsConfig
     preprocessing: PreprocessingConfig
     llm: LlmConfig
     chunking: ChunkingConfig
     metadata: MetadataConfig
+    store: StoreConfig = field(default_factory=StoreConfig)
 
 
 def load_documents_config(
@@ -174,6 +185,7 @@ def load_app_config(
     llm = LlmConfig(provider=provider, model=model, api_key=api_key)
     chunking = _chunking_config(data.get("chunking") or {})
     metadata = _metadata_config(data.get("metadata") or {}, data.get("processing") or {}, root)
+    store = _store_config(data.get("metadata_store") or {}, root)
 
     return AppConfig(
         documents=DocumentsConfig(
@@ -191,6 +203,7 @@ def load_app_config(
         llm=llm,
         chunking=chunking,
         metadata=metadata,
+        store=store,
     )
 
 
@@ -278,3 +291,37 @@ def _positive_int(env_name: str, raw, field: str) -> int:
     if value < 1:
         raise ValueError(f"{field} must be >= 1")
     return value
+
+
+def _store_config(raw: dict, root: Path) -> StoreConfig:
+    provider = (
+        os.environ.get("METADATA_STORE_PROVIDER")
+        or raw.get("provider")
+        or DEFAULT_STORE_PROVIDER
+    )
+    provider = str(provider).strip() or DEFAULT_STORE_PROVIDER
+    if provider.startswith("${") and provider.endswith("}"):
+        provider = DEFAULT_STORE_PROVIDER
+    collection = (
+        os.environ.get("METADATA_STORE_COLLECTION")
+        or raw.get("collection")
+        or DEFAULT_STORE_COLLECTION
+    )
+    collection = str(collection).strip() or DEFAULT_STORE_COLLECTION
+    if collection.startswith("${") and collection.endswith("}"):
+        collection = DEFAULT_STORE_COLLECTION
+    persist_raw = (
+        os.environ.get("METADATA_STORE_PERSIST_PATH")
+        or raw.get("persist_path")
+        or DEFAULT_STORE_PERSIST_PATH
+    )
+    persist_path = Path(str(persist_raw).strip() or DEFAULT_STORE_PERSIST_PATH)
+    if persist_path.as_posix().startswith("${"):
+        persist_path = Path(DEFAULT_STORE_PERSIST_PATH)
+    if not persist_path.is_absolute():
+        persist_path = root / persist_path
+    return StoreConfig(
+        provider=provider,
+        collection=collection,
+        persist_path=persist_path.resolve(),
+    )

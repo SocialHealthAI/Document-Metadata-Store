@@ -1,6 +1,6 @@
-# STUB: Docker Compose for Document Metadata Store.
-# Replace image, ports, and store services during spec-kit planning / implementation.
-# The metadata store provider must remain swappable (see specs/Document Metadata Store.md).
+# Docker Compose for Document Metadata Store.
+# Knowledge records persist in local Chroma files (data/metadata-store volume).
+# The metadata store provider remains swappable (see specs/Document Metadata Store.md).
 
 services:
   document-metadata-store:
@@ -10,22 +10,21 @@ services:
     container_name: document-metadata-store
     env_file:
       - .env
-    environment:
-      CONFIG_PATH: /app/config.yaml
-      METADATA_SCHEMA_PATH: /app/metadata_schema.yaml
-      DOCUMENTS_INPUT_PATH: /app/documents
-      PREVIEW_BLOCKS: ${PREVIEW_BLOCKS:-0}
-      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
-      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
-      LLM_API_KEY: ${LLM_API_KEY:-}
     volumes:
       - ./documents:/app/documents
       - ./config.yaml:/app/config.yaml:ro
       - ./metadata_schema.yaml:/app/metadata_schema.yaml:ro
+      - ./data/metadata-store:/app/data/metadata-store
+    environment:
+      CONFIG_PATH: /app/config.yaml
+      METADATA_SCHEMA_PATH: /app/metadata_schema.yaml
+      DOCUMENTS_INPUT_PATH: /app/documents
+      METADATA_STORE_PERSIST_PATH: /app/data/metadata-store
+      METADATA_STORE_COLLECTION: ${METADATA_STORE_COLLECTION:-knowledge}
+      PREVIEW_BLOCKS: ${PREVIEW_BLOCKS:-0}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
+      LLM_API_KEY: ${LLM_API_KEY:-}
     # ports:
     #   - "${APP_PORT:-8000}:8000"
     restart: "no"
-
-  # metadata-store:
-  #   image: <vector-store-image>
-  #   # Provider and collection are configured in config.yaml / .env

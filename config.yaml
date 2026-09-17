@@ -51,8 +51,9 @@ metadata:
   schema: ./metadata_schema.yaml
 
 metadata_store:
-  provider: ${METADATA_STORE_PROVIDER}
-  collection: ${METADATA_STORE_COLLECTION}
+  provider: chroma
+  collection: knowledge
+  persist_path: ./data/metadata-store
 
 processing:
   force: false

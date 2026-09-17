@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** Load, preprocess, structure extraction, context-aware chunking, metadata extraction, and embedding generation are implemented. The metadata store is still stubbed. Keep aligned with `specs/Document Metadata Store.md` and the active feature briefs.
+**Status:** Load, preprocess, structure extraction, context-aware chunking, metadata extraction, embedding generation, and the local metadata store are implemented. Keep aligned with `specs/Document Metadata Store.md` and the active feature briefs.
 
 ## Futures
 
@@ -56,6 +56,7 @@ Preprocessing copies that tree into `AnnotatedBlock` values (`keep` | `exclude`,
 | Chunker | Section tree | Context-aware chunks (original + heading prefix; sizes from config) |
 | MetadataExtractor | Chunks + schema | List fields per chunk (topic, geography, population as free-text; time_period as calendar years, ranges expanded) + provenance |
 | EmbeddingProvider | Enriched chunks | 384-dim MiniLM vectors from `contextual_text` (metadata lists unchanged) |
+| MetadataStore | Embedded chunks | Local Chroma files (`data/metadata-store`); library `search()` |
 
 `kind` is an observable (`heading_candidate` means style/position suggests a heading). Confirmed sections are Structure Extraction’s job.
 
@@ -75,16 +76,18 @@ TOC (when configured): the Contents page plus following pages that still contain
 | Chunker | Split each section’s body on paragraph/sentence boundaries; prepend ancestor headings; do not merge across sections; tables/lists/captions stay one chunk |
 | MetadataExtractor | Schema-driven lists per chunk from `contextual_text`; `time_period` expanded to calendar years; batched Anthropic calls; explicit/inherited/inferred/unknown; histogram console |
 | EmbeddingProvider | Local sentence-transformers `all-MiniLM-L6-v2`; encodes `contextual_text`; not operator-configured |
-| MetadataStore | Persistent records; semantic + metadata retrieval; re-index |
+| MetadataStore | Local Chroma `PersistentClient` (persist path + collection); replace by document_id; Python `search()` (ANN then OR/AND tag overlap); counts + sample console |
 | ManifestManager | Per-run audit trail |
 
-## Deployment (intended)
+## Deployment
 
-Docker Compose hosts the application and any chosen metadata-store service. Provider implementations are swappable behind interfaces. Runtime is Python 3.12.
+Docker Compose runs the application once (ingest). Knowledge records persist in a **local Chroma directory** mounted at `data/metadata-store`. There is no extra vector-store service and no store API key. Provider implementations stay swappable behind `MetadataStore`. Runtime is Python 3.12.
 
 ## Open
 
-- Concrete store provider
-- Inspection/API surface beyond the load/preprocess/structure/chunk/metadata/embed console
+- HTTP search API (would make the image a long-running server)
+- Incremental skip of unchanged documents (`processing.force` / fingerprint)
+- Second store provider (Qdrant / LanceDB)
+- Processing manifest
 
-Load extract uses **pypdf** plus **fonttools**. Preprocess uses configurable aliases plus an optional Anthropic adapter (`LLM_PROVIDER=anthropic`, default `LLM_MODEL=claude-sonnet-5`). Metadata extraction uses the same adapter in batches of `processing.batch_size` (default 50). Embeddings use local sentence-transformers `all-MiniLM-L6-v2` (384-dim, CPU) on `contextual_text`; the model is baked into the Docker image.
+Load extract uses **pypdf** plus **fonttools**. Preprocess uses configurable aliases plus an optional Anthropic adapter (`LLM_PROVIDER=anthropic`, default `LLM_MODEL=claude-sonnet-5`). Metadata extraction uses the same adapter in batches of `processing.batch_size` (default 50). Embeddings use local sentence-transformers `all-MiniLM-L6-v2` (384-dim, CPU) on `contextual_text`; the model is baked into the Docker image. The store uses Chroma on disk; agents import `document_metadata_store.search`.

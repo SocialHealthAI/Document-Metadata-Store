@@ -11,6 +11,7 @@ from document_metadata_store.console import (
     format_load_run,
     format_metadata_run,
     format_preprocess_run,
+    format_store_run,
     format_structure_run,
 )
 from document_metadata_store.pipeline.chunker import chunk_documents
@@ -18,13 +19,14 @@ from document_metadata_store.pipeline.embedder import embed_documents
 from document_metadata_store.pipeline.extractor import extract_metadata_documents
 from document_metadata_store.pipeline.loader import load_documents
 from document_metadata_store.pipeline.preprocessor import preprocess_documents
+from document_metadata_store.pipeline.storer import store_documents
 from document_metadata_store.pipeline.structure import extract_structures
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="document-metadata-store",
-        description="Document Metadata Store — load, preprocess, extract structure, chunk, extract metadata, and embed.",
+        description="Document Metadata Store — load, preprocess, extract structure, chunk, extract metadata, embed, and store.",
     )
     parser.add_argument(
         "--config",
@@ -67,6 +69,9 @@ def main(argv: list[str] | None = None) -> int:
     embed_run = embed_documents(meta_run, app.metadata.batch_size)
     sys.stdout.write("\n")
     sys.stdout.write(format_embed_run(embed_run, preview_blocks=preview))
+    store_run = store_documents(embed_run, app.store)
+    sys.stdout.write("\n")
+    sys.stdout.write(format_store_run(store_run, preview_blocks=preview))
     failed = (
         load_run.counts()["failed"]
         + prep_run.counts()["failed"]
@@ -74,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
         + chunk_run.counts()["failed"]
         + meta_run.counts()["failed"]
         + embed_run.counts()["failed"]
+        + store_run.counts()["failed"]
     )
     return 1 if failed else 0
 

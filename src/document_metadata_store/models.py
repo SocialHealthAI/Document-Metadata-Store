@@ -333,3 +333,27 @@ class EmbeddedDocument:
 
     def embed_failed_count(self) -> int:
         return sum(1 for item in self.chunks if item.embed_failed)
+
+
+@dataclass(frozen=True)
+class Provenance:
+    document_id: str
+    document_title: str | None = None
+    source: str | None = None
+    source_url: str | None = None
+    version: str | None = None
+    section: str = ""
+    subsection: str | None = None
+    pages: tuple[int, ...] = ()
+    heading: str = ""
+    start_block_id: str = ""
+
+
+@dataclass(frozen=True)
+class SearchHit:
+    text: str
+    metadata: dict[str, tuple[str, ...]]
+    provenance: Provenance
+    score: float
+    chunk_id: str = ""
+    document_id: str = ""
